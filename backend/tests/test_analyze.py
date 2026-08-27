@@ -121,3 +121,154 @@ class TestAnalyzeEndpoint:
         resp_b = client.get("/api/threats", headers=HEADERS_B)
         assert resp_b.status_code == 200
         assert resp_b.json()["threats"] == []
+
+
+class TestAnalyzeContractCompliance:
+    """
+    Verify that POST /api/analyze returns objects that match all contract §1 fields.
+    These tests exist to catch schema drift early.
+    """
+
+    _REQUIRED_FIELDS = [
+        "id", "source", "risk_score", "risk_level",
+        "threat_type", "indicators", "recommendation",
+        "timestamp", "analyzed_content",
+    ]
+
+    def test_all_contract_fields_present_in_response(self, client: TestClient):
+        """Response must include every field from contract §1.1."""
+        resp = client.post(
+            "/api/analyze",
+            json={"source": "SMS", "content": "Urgent: your OTP required", "metadata": {}},
+            headers=HEADERS_A,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        for field in self._REQUIRED_FIELDS:
+            assert field in data, f"Missing required contract field: {field}"
+
+    def test_risk_score_is_integer_not_float(self, client: TestClient):
+        """Contract §1.1: risk_score is integer 0–100, not a float."""
+        resp = client.post(
+            "/api/analyze",
+            json={"source": "SMS", "content": "Your account is blocked. OTP required.", "metadata": {}},
+            headers=HEADERS_A,
+        )
+        assert resp.status_code == 200
+        score = resp.json()["risk_score"]
+        assert isinstance(score, int)
+        assert 0 <= score <= 100
+
+    def test_risk_level_is_valid_enum(self, client: TestClient):
+        """Backend must only emit LOW | MEDIUM | HIGH | CRITICAL — never UNKNOWN."""
+        resp = client.post(
+            "/api/analyze",
+            json={"source": "LINK", "content": "http://phishing-site.xyz/login", "metadata": {}},
+            headers=HEADERS_A,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["risk_level"] in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+
+    def test_indicators_is_list_of_strings(self, client: TestClient):
+        """Contract §1.1: indicators is string[] — not objects, not weighted."""
+        resp = client.post(
+            "/api/analyze",
+            json={"source": "SMS", "content": "OTP bank verification urgent", "metadata": {}},
+            headers=HEADERS_A,
+        )
+        assert resp.status_code == 200
+        indicators = resp.json()["indicators"]
+        assert isinstance(indicators, list)
+        assert all(isinstance(i, str) for i in indicators)
+
+    def test_analyzed_content_matches_submitted_content(self, client: TestClient):
+        """Contract §1.2: for SMS, analyzed_content = the full message text as submitted."""
+        content = "Your HDFC account will be blocked. Call now."
+        resp = client.post(
+            "/api/analyze",
+            json={"source": "SMS", "content": content, "metadata": {}},
+            headers=HEADERS_A,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["analyzed_content"] == content
+
+    def test_threat_id_format(self, client: TestClient):
+        """id must be stable and unique per contract §1.1."""
+        resp = client.post(
+            "/api/analyze",
+            json={"source": "QR", "content": "http://pay.xyz/fake", "metadata": {}},
+            headers=HEADERS_A,
+        )
+        assert resp.status_code == 200
+        threat_id = resp.json()["id"]
+        assert threat_id.startswith("thr_qr_")
+        assert len(threat_id) > 8
+
+
+class TestAnalyzeFailure:
+    """
+    Tests that verify contract §5.2: analysis failure = error, never fake LOW.
+    """
+
+    def test_analysis_failure_returns_502_error_envelope(self, client: TestClient):
+        """
+        When the analysis engine fails, the response must be a 502 with the
+        standard error envelope — never a ThreatResult with risk_level=LOW.
+        Per contract §5.2.
+        """
+        from unittest.mock import patch
+        from app.core.errors import AnalysisFailedError
+
+        with patch(
+            "app.api.v1.analyze.analysis_service.analyze",
+            side_effect=AnalysisFailedError("AI engine unavailable"),
+        ):
+            resp = client.post(
+                "/api/analyze",
+                json={"source": "SMS", "content": "Test message", "metadata": {}},
+                headers=HEADERS_A,
+            )
+
+        assert resp.status_code == 502
+        body = resp.json()
+        assert "error" in body
+        assert body["error"]["code"] == "ANALYSIS_FAILED"
+        assert "message" in body["error"]
+
+    def test_analysis_failure_does_not_persist_threat(self, client: TestClient):
+        """On failure, no threat record should be written to the DB."""
+        from unittest.mock import patch
+        from app.core.errors import AnalysisFailedError
+
+        with patch(
+            "app.api.v1.analyze.analysis_service.analyze",
+            side_effect=AnalysisFailedError("Engine down"),
+        ):
+            client.post(
+                "/api/analyze",
+                json={"source": "SMS", "content": "Test message", "metadata": {}},
+                headers=HEADERS_A,
+            )
+
+        # History must be empty — failure must not have written a row
+        history = client.get("/api/threats", headers=HEADERS_A)
+        assert history.json()["threats"] == []
+
+    def test_error_response_has_no_risk_level_field(self, client: TestClient):
+        """Error body must NOT contain risk_level — that would be a fake result."""
+        from unittest.mock import patch
+        from app.core.errors import AnalysisFailedError
+
+        with patch(
+            "app.api.v1.analyze.analysis_service.analyze",
+            side_effect=AnalysisFailedError("Unavailable"),
+        ):
+            resp = client.post(
+                "/api/analyze",
+                json={"source": "SMS", "content": "Test", "metadata": {}},
+                headers=HEADERS_A,
+            )
+
+        body = resp.json()
+        assert "risk_level" not in body
+        assert "risk_score" not in body

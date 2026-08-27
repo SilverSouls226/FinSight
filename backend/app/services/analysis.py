@@ -1,29 +1,77 @@
 """
 app/services/analysis.py
 
-AnalysisService — the integration seam between the backend and Sub-team A's
-AI pipeline (Skandan's Groq/Whisper analysis).
+AnalysisService — the integration seam between the backend and Skandan's
+AI pipeline (Groq/Whisper-based scam detection).
 
-Day 1: Keyword-based stub that returns a plausible ThreatResult.
-       The interface is frozen so Skandan can replace the implementation
-       without touching any other backend file.
+Architecture:
 
-Integration contract for Sub-team A:
-    Input:  source (Source), content (str), metadata (dict)
-    Output: ThreatResult (from app.schemas.threat)
-    Error:  raises AnalysisFailedError — never returns a fake LOW result.
+    API route
+      ↓
+    AnalysisService.analyze()          ← backend always calls this
+      ↓
+    AnalysisProvider.analyze()         ← swappable implementation
+      ↓
+    ThreatResult                       ← frozen contract §1 shape
 
-DO NOT implement real AI here. DO NOT import Groq or Whisper here on Day 1.
+Skandan's integration path:
+    1. Implement AnalysisProvider (the Protocol below).
+    2. Pass your provider to AnalysisService(provider=your_provider).
+    3. The backend wires it in — you do not need to import any ORM or DB code.
+
+Per contract §5.2: analysis failure MUST raise AnalysisFailedError.
+NEVER return a ThreatResult with risk_level=LOW when analysis did not happen.
+
+DO NOT import Groq or Whisper in this file until Skandan is ready.
 """
 import re
 import uuid
 from datetime import datetime, timezone
+from typing import Protocol, runtime_checkable
 
 from app.core.errors import AnalysisFailedError
 from app.schemas.common import RiskLevel, Source
 from app.schemas.threat import ThreatResult
 
-# ── Keyword heuristics (stub only — replaced by Groq/LLM in Day 2+) ──────────
+
+# ── AnalysisProvider Protocol ─────────────────────────────────────────────────
+# This is the ONLY interface the backend cares about.
+# Skandan: implement this Protocol in your AI module.
+# You do NOT need to inherit from it — Python structural subtyping handles it.
+
+@runtime_checkable
+class AnalysisProvider(Protocol):
+    """
+    Protocol (interface) that any analysis implementation must satisfy.
+
+    Implementation contract:
+      - analyze() MUST return a ThreatResult on success.
+      - analyze() MUST raise AnalysisFailedError on any failure.
+      - analyze() MUST NEVER return a ThreatResult with risk_level=LOW
+        when analysis did not actually run.
+      - The returned ThreatResult MUST have all fields from contract §1.
+
+    Skandan's AI provider example:
+        class GroqAnalysisProvider:
+            def analyze(self, source, content, metadata) -> ThreatResult:
+                # call Groq API, run STT, score, return ThreatResult
+                ...
+
+        # Wire it into the backend:
+        from app.services.analysis import AnalysisService
+        ai_service = AnalysisService(provider=GroqAnalysisProvider())
+    """
+
+    def analyze(
+        self,
+        source: Source,
+        content: str,
+        metadata: dict,
+    ) -> ThreatResult:
+        ...
+
+
+# ── Keyword heuristics (stub — replaced by Skandan's provider) ───────────────
 
 _BANKING_SCAM_PATTERNS = [
     r"\botp\b",
@@ -53,13 +101,9 @@ _QR_MALICIOUS_PATTERNS = [
 
 
 def _count_matches(text: str, patterns: list[str]) -> list[str]:
-    """Return the human-readable names of matched patterns."""
+    """Return the patterns that matched (for scoring; not shown to users)."""
     text_lower = text.lower()
-    matched = []
-    for p in patterns:
-        if re.search(p, text_lower):
-            matched.append(p)
-    return matched
+    return [p for p in patterns if re.search(p, text_lower)]
 
 
 def _derive_risk(score: int) -> RiskLevel:
@@ -76,14 +120,17 @@ def _make_id(source: Source) -> str:
     return f"thr_{source.value.lower()}_{uuid.uuid4().hex[:8]}"
 
 
-# ── Public interface ──────────────────────────────────────────────────────────
+# ── Stub provider ─────────────────────────────────────────────────────────────
 
-class AnalysisService:
+class StubAnalysisProvider:
     """
-    Stub analysis engine.
+    Keyword-based stub that satisfies the AnalysisProvider Protocol.
 
-    Replace the body of `analyze()` with a call to Skandan's real AI service.
-    The method signature and return type must NOT change.
+    Used in development and testing when Skandan's real AI is not available.
+    NEVER returns a fake-safe LOW result for a call — raises AnalysisFailedError
+    if called with source=CALL (the real path is Skandan's AI, not this stub).
+
+    To replace: implement AnalysisProvider and pass it to AnalysisService().
     """
 
     def analyze(
@@ -91,27 +138,6 @@ class AnalysisService:
         source: Source,
         content: str,
         metadata: dict,
-    ) -> ThreatResult:
-        """
-        Analyse content and return a ThreatResult.
-
-        Raises:
-            AnalysisFailedError: if analysis cannot produce a result.
-                                 Do NOT return a LOW-risk result on failure.
-        """
-        try:
-            return self._stub_analyze(source, content, metadata)
-        except AnalysisFailedError:
-            raise
-        except Exception as exc:
-            raise AnalysisFailedError(
-                f"Analysis engine encountered an unexpected error: {exc}"
-            ) from exc
-
-    # ── Stub implementation (keyword-based) ──────────────────────────────
-
-    def _stub_analyze(
-        self, source: Source, content: str, metadata: dict
     ) -> ThreatResult:
         indicators: list[str] = []
         base_score = 0
@@ -121,10 +147,12 @@ class AnalysisService:
             phishing_hits = _count_matches(content, _PHISHING_PATTERNS)
 
             if banking_hits:
-                indicators.append("Bank impersonation" if "bank" in content.lower() else "Financial urgency")
+                indicators.append(
+                    "Bank impersonation" if "bank" in content.lower() else "Financial urgency"
+                )
             if any("otp" in h for h in banking_hits):
                 indicators.append("OTP request")
-            if any("urgency" in h or "urgent" in h or "immediately" in h for h in banking_hits):
+            if any(k in h for h in banking_hits for k in ("urgency", "urgent", "immediately")):
                 indicators.append("Urgency")
             if any("kyc" in h for h in banking_hits):
                 indicators.append("KYC verification request")
@@ -132,7 +160,10 @@ class AnalysisService:
                 indicators.append("Suspicious URL")
 
             base_score = min(100, (len(banking_hits) * 15) + (len(phishing_hits) * 20))
-            threat_type = "Banking Scam" if banking_hits else ("Phishing" if phishing_hits else "Suspicious Message")
+            threat_type = (
+                "Banking Scam" if banking_hits
+                else ("Phishing" if phishing_hits else "Suspicious Message")
+            )
             recommendation = (
                 "Do not share your OTP or personal details. Contact your bank directly."
                 if "OTP request" in indicators
@@ -159,18 +190,18 @@ class AnalysisService:
             recommendation = "Do not visit this link. Report to your security team."
 
         elif source == Source.CALL:
-            # CALL analysis is driven by the AI pipeline (Skandan).
-            # This stub is only used if the call analysis pathway bypasses
-            # the real AI service (e.g., in integration tests).
-            base_score = 50
-            indicators = ["Call analysis stub"]
-            threat_type = "Suspicious Call"
-            recommendation = "Hang up and call your bank on their official number."
+            # CALL analysis belongs to Skandan's AI pipeline.
+            # The stub cannot meaningfully analyse call audio.
+            # Per contract §5.2: raise an error — never fake LOW.
+            raise AnalysisFailedError(
+                "CALL source requires the AI analysis pipeline (not the stub provider). "
+                "Use finalize_call() after Skandan's AI produces a ThreatResult."
+            )
 
         else:
             raise AnalysisFailedError(f"Unknown source type: {source}")
 
-        # Deduplicate indicators
+        # Deduplicate while preserving insertion order
         indicators = list(dict.fromkeys(indicators))
 
         if not indicators and base_score == 0:
@@ -178,13 +209,11 @@ class AnalysisService:
             threat_type = "No Threat Detected"
             recommendation = "No immediate action required."
 
-        risk_level = _derive_risk(base_score)
-
         return ThreatResult(
             id=_make_id(source),
             source=source,
             risk_score=base_score,
-            risk_level=risk_level,
+            risk_level=_derive_risk(base_score),
             threat_type=threat_type,
             indicators=indicators,
             recommendation=recommendation,
@@ -193,5 +222,48 @@ class AnalysisService:
         )
 
 
+# ── AnalysisService — the public boundary ────────────────────────────────────
+
+class AnalysisService:
+    """
+    Public analysis boundary.  Routes always call this — never the provider directly.
+
+    The provider is injected so the real AI can be swapped in without touching
+    any route or test code:
+
+        from app.services.analysis import AnalysisService
+        from my_ai_module import GroqAnalysisProvider
+        analysis_service = AnalysisService(provider=GroqAnalysisProvider())
+
+    Default provider is StubAnalysisProvider (keyword heuristics).
+    """
+
+    def __init__(self, provider: AnalysisProvider | None = None) -> None:
+        self._provider: AnalysisProvider = provider or StubAnalysisProvider()
+
+    def analyze(
+        self,
+        source: Source,
+        content: str,
+        metadata: dict,
+    ) -> ThreatResult:
+        """
+        Analyse content and return a ThreatResult.
+
+        Raises:
+            AnalysisFailedError: on any failure. Per contract §5.2, NEVER
+                                 return a LOW-risk result on failure.
+        """
+        try:
+            return self._provider.analyze(source, content, metadata)
+        except AnalysisFailedError:
+            raise
+        except Exception as exc:
+            raise AnalysisFailedError(
+                f"Analysis engine encountered an unexpected error: {exc}"
+            ) from exc
+
+
 # Shared singleton — import this in the API layer.
+# To swap in Skandan's real AI: reassign this or use dependency injection.
 analysis_service = AnalysisService()

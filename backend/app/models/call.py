@@ -5,8 +5,14 @@ SQLAlchemy ORM models for Call and CallEvent.
 
 Call  — one row per bridged Twilio call session.
 CallEvent — append-only log of events emitted during a call.
-            seq is monotonically increasing per call_id.
+            seq is monotonically increasing per call_id, starting at 1.
             Clients poll GET /api/calls/{call_id}/events?after_seq=N.
+
+Event field semantics per Backend Contract v1.0 §6.2:
+    STATUS events:    status = RINGING | IN_PROGRESS | ENDED
+    TRANSCRIPT events: speaker = CALLER | USER; text = transcript chunk
+    RISK_UPDATE events: risk_score (0-100), risk_level
+    ALERT events:     text = alert message; risk_score, risk_level
 
 NOTE: No seed/mock data is inserted here.
       Mock data lives exclusively in tests/conftest.py.
@@ -23,7 +29,7 @@ from app.db.base import Base
 class Call(Base):
     __tablename__ = "calls"
 
-    # ── Primary key — Twilio CallSid or a generated UUID ─────────────────
+    # ── Primary key — Twilio CallSid or a generated ID ───────────────────
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
 
     # ── Status state machine ──────────────────────────────────────────────
@@ -44,7 +50,7 @@ class Call(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    # ── Final ThreatResult FK (set when call is completed) ────────────────
+    # ── Final ThreatResult FK (set when call is completed / finalized) ────
     threat_id: Mapped[Optional[str]] = mapped_column(
         String(64), ForeignKey("threats.id"), nullable=True
     )
@@ -83,9 +89,10 @@ class CallEvent(Base):
     )
 
     # Monotonic counter per call — clients use this for ?after_seq= polling.
+    # Starts at 1 per contract §6.2.
     seq: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    # Event type — VALUES: STATUS | TRANSCRIPT | RISK_UPDATE | ALERT
+    # Event type per contract §6.2: STATUS | TRANSCRIPT | RISK_UPDATE | ALERT
     type: Mapped[str] = mapped_column(String(16), nullable=False)
 
     timestamp: Mapped[datetime] = mapped_column(
@@ -94,13 +101,18 @@ class CallEvent(Base):
         default=lambda: datetime.now(timezone.utc),
     )
 
-    # ── Optional payload fields ───────────────────────────────────────────
-    speaker: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
-    # Values: SCAMMER | VICTIM | null
+    # ── Per-event-type payload fields (contract §6.2) ─────────────────────
 
+    # STATUS events: RINGING | IN_PROGRESS | ENDED
+    status: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+
+    # TRANSCRIPT events: CALLER | USER  (contract §6.2 — not SCAMMER/VICTIM)
+    speaker: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
+
+    # TRANSCRIPT and ALERT events: transcript chunk or alert message
     text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # Transcript chunk or alert message
 
+    # RISK_UPDATE and ALERT events
     risk_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     risk_level: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
 
