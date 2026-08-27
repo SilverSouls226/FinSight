@@ -84,7 +84,8 @@ def client(db: Session) -> TestClient:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with patch("app.db.init_db.init_db", return_value=None):
+    with patch("app.db.init_db.init_db", return_value=None), \
+         patch("app.api.v1.devtools.SessionLocal", TestingSessionLocal):
         with TestClient(app, raise_server_exceptions=True) as c:
             yield c
 

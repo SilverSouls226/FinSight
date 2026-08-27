@@ -294,6 +294,102 @@ Handle `UNKNOWN` as a client-side forward-compatibility fallback (per contract �
 
 ---
 
+## Development Call Simulator
+
+The backend includes a **development-only call simulator** to test real-time scam-call event polling, active call discovery, and final threat results before the real Twilio/AI pipeline is completed by Sub-team A.
+
+This simulator runs **only when `APP_ENV=development`**. It is completely gated and is not present in production routes.
+
+### 1. Trigger the Simulator
+
+Simulate a realistic bank OTP scam call sequence.
+
+```http
+POST /api/devtools/simulate
+Content-Type: application/json
+
+{
+  "call_id": "call_sim_scam_001",
+  "device_id": "device-uuid-12345",
+  "delay_seconds": 2.0
+}
+```
+
+- **`call_id`** (optional): Custom ID to simulate. A unique ID is generated if omitted.
+- **`device_id`** (required): The client device UUID. Used to scope the final `ThreatResult` history.
+- **`delay_seconds`**:
+  - `0.0`: Runs synchronously and populates the database immediately (useful for tests).
+  - `> 0.0` (e.g. `2.0`): Runs asynchronously in a background task, inserting each event with a delay so you can watch progress in real-time.
+
+### 2. Observe Active Call
+
+While the simulation is running (before step 10 ends), you can discover it:
+
+```http
+GET /api/calls/active
+```
+
+Response:
+```json
+{
+  "call_id": "call_sim_scam_001"
+}
+```
+
+Once the simulation completes and finalizes, this endpoint returns `{"call_id": null}`.
+
+### 3. Poll Events
+
+Watch the events stream progressively by polling with the cursor `after_seq`:
+
+```http
+GET /api/calls/call_sim_scam_001/events?after_seq=0
+```
+
+The simulator produces exactly 10 events:
+1. `STATUS` -> RINGING (seq=1)
+2. `STATUS` -> IN_PROGRESS (seq=2)
+3. `TRANSCRIPT` -> "Hello, I'm calling from your bank." (seq=3)
+4. `TRANSCRIPT` -> "We've detected suspicious activity on your account." (seq=4)
+5. `RISK_UPDATE` -> score=20, level=LOW (seq=5)
+6. `TRANSCRIPT` -> "We need to verify your identity to prevent account freeze." (seq=6)
+7. `RISK_UPDATE` -> score=45, level=MEDIUM (seq=7)
+8. `TRANSCRIPT` -> "Please tell me the OTP you received." (seq=8)
+9. `ALERT` -> score=97, level=CRITICAL, text="ALERT: Caller requested OTP..." (seq=9)
+10. `STATUS` -> ENDED (seq=10)
+
+Keep track of the highest `seq` received and supply it as `after_seq` on the next poll to query only new events.
+
+### 4. Retrieve Final Result
+
+After the call finishes, retrieve the final verified ThreatResult:
+
+```http
+GET /api/calls/call_sim_scam_001/result
+```
+
+Response `200` matches the canonical contract §1.2 result shape:
+- `source`: `"CALL"`
+- `analyzed_content`: `"call_sim_scam_001"` (the call ID only, never the full transcript)
+- `risk_score`: `97`
+- `risk_level`: `"CRITICAL"`
+- `threat_type`: `"Banking Scam"`
+- `indicators`: `["Bank impersonation", "OTP request", "Urgency"]`
+
+### 5. Swappability
+
+This simulator uses the exact same contract endpoints, data structures, and database models that the future production pipeline will use:
+
+```
+Sanjani (Twilio Webhook) ──┐
+                           ├─► CallService ─► database ─► Kalyan (Flutter App)
+Skandan (STT + AI API) ────┘
+```
+
+When Sub-team A completes the real pipeline, they will make the exact same calls to `CallService` (e.g. `create_call()`, `append_event()`, `finalize_call()`) without requiring any change to Kalyan's Flutter UI, the API contract, or the databases.
+
+---
+
 ## Architecture
 
 ```
