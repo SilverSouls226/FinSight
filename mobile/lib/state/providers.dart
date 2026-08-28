@@ -46,7 +46,12 @@ final interventionServiceProvider = Provider<InterventionService>((ref) {
   if (useMockServices) {
     return MockInterventionService(loader: ref.watch(demoScenarioLoaderProvider));
   }
-  return ApiInterventionService();
+  // Sameer's evaluate endpoint takes a Financial State Snapshot as input,
+  // so the intervention service depends on the financial state service to
+  // build its request body (see api_intervention_service.dart).
+  return ApiInterventionService(
+    financialStateService: ref.watch(financialStateServiceProvider),
+  );
 });
 
 final simulationServiceProvider = Provider<SimulationService>((ref) {

@@ -112,10 +112,20 @@ or widget code needs to change**.
 3. Ensure the backend exposes:
    - `GET {baseUrl}/users/{userId}/financial-state` → a single
      `Financial State Snapshot` JSON object (Contract 2 in
-     `docs/api_contracts.md`).
-   - `GET {baseUrl}/users/{userId}/interventions` → either a JSON array of
-     `Contextual Intervention` objects (Contract 3), or an object with an
-     `interventions` array key — both are accepted.
+     `docs/api_contracts.md`). This route isn't pinned down by the shared
+     contract doc (only the payload shape is) — it's this module's working
+     assumption. If Sanjani's real route differs, update the one
+     `Uri.parse` call in `lib/services/api_financial_state_service.dart`.
+   - `POST {baseUrl}/api/evaluate/{userId}` (Sameer's AI Brain endpoint) →
+     request body is the `Financial State Snapshot` JSON (Contract 2),
+     response body is a single `Contextual Intervention` JSON object
+     (Contract 3) — not an array. `ApiInterventionService` fetches the
+     snapshot via `FinancialStateService` to build the request, then wraps
+     the single response object in a one-element list so the rest of the
+     app still sees `List<ContextualIntervention>`. A `204 No Content` or
+     empty body is treated as "no intervention right now", not an error. A
+     bare JSON array or `{"interventions": [...]}` is also accepted
+     defensively, in case the response shape changes.
 4. That's it. `ApiFinancialStateService` / `ApiInterventionService`
    (`lib/services/api_financial_state_service.dart`,
    `lib/services/api_intervention_service.dart`) take over from the mock
@@ -146,8 +156,8 @@ understands it.
 
 - Only the JSON shapes in `docs/api_contracts.md`. No backend code, no
   database, no internal classes are imported.
-- Never assumes a specific ordering, source, or transport beyond
-  "HTTP GET returning that JSON."
+- Never assumes a specific ordering or internal source for that JSON —
+  only the HTTP method/route documented above and the response shape.
 
 ## Error handling
 
@@ -167,11 +177,23 @@ card (`lib/widgets/error_view.dart`):
 
 ```
 test/
-  models/     JSON parsing + model correctness against the exact contracts
-  services/   Mock service stage-switching, simulation risk math
+  fixtures/   Sanitized JSON representing REAL expected backend responses
+              (not the demo scenario — see below)
+  models/     JSON parsing + model correctness against the exact contracts,
+              including the fixtures above
+  services/   Mock service stage-switching, simulation risk math, and
+              ApiFinancialStateService/ApiInterventionService success +
+              failure paths against a mocked HTTP client (package:http's
+              testing.dart — no real network, no extra dependency)
   screens/    Loading/error states, navigation, intervention rendering,
               simulation flow
   widget_test.dart   App boot smoke test
 ```
+
+`test/fixtures/*.json` are separate from `assets/mock/demo_scenario.json`:
+the fixtures exist purely to pin down contract-parsing correctness
+(including a low-risk and a high-risk intervention, and a snapshot with
+the optional field absent); the demo scenario asset drives the scripted
+judging walkthrough in the running app.
 
 Run with `flutter test`. All tests pass offline (no network required).

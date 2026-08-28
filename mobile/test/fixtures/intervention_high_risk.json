@@ -1,0 +1,27 @@
+{
+  "intervention_id": "int_high_001",
+  "user_id": "usr_123",
+  "timestamp": "2026-08-28T14:30:00Z",
+  "severity": "high",
+  "title": "Potential cash-flow collision",
+  "summary": "You may be short on cash for your rent payment on Sept 4th.",
+  "explanation": "A freelance payment you were expecting was delayed, cutting projected income and widening uncertainty. Your rent is due in a few days and your checking balance has dropped sharply. Shortfall probability has risen significantly.",
+  "suggested_actions": [
+    {
+      "action_type": "transfer",
+      "description": "Transfer funds from your Emergency Fund to Checking to cover the rent gap.",
+      "requires_user_approval": true
+    },
+    {
+      "action_type": "budget_cut",
+      "description": "Pause discretionary spending until the freelance payment clears.",
+      "requires_user_approval": false
+    }
+  ],
+  "decision_trace": [
+    { "factor": "Income decreased", "detail": "Freelance payment delayed" },
+    { "factor": "Rent approaching", "detail": "Due in 4 days" },
+    { "factor": "Shortfall probability increased", "detail": "8% -> 41%" },
+    { "factor": "User preference", "detail": "Risk tolerance: moderate - threshold crossed" }
+  ]
+}

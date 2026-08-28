@@ -1,0 +1,15 @@
+{
+  "intervention_id": "int_low_001",
+  "user_id": "usr_123",
+  "timestamp": "2026-08-28T08:00:00Z",
+  "severity": "info",
+  "title": "You're on track",
+  "summary": "Cash flow looks steady for the next 30 days.",
+  "explanation": "Projected income comfortably covers upcoming obligations, leaving a healthy safe-to-spend buffer. Shortfall risk is low.",
+  "suggested_actions": [
+    {
+      "action_type": "info",
+      "description": "No action needed."
+    }
+  ]
+}

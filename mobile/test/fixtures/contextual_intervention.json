@@ -1,0 +1,26 @@
+{
+  "intervention_id": "int_456",
+  "user_id": "usr_123",
+  "timestamp": "2026-08-28T10:10:00Z",
+  "severity": "high",
+  "title": "Upcoming Cash Flow Shortfall",
+  "summary": "You may be short on cash for your rent payment next week.",
+  "explanation": "Your rent of $1,100 is due on Sept 1st. Based on your variable gig income trends, we project you will only earn $800 before then. Your current checking balance is $150.",
+  "suggested_actions": [
+    {
+      "action_type": "transfer",
+      "description": "Transfer $150 from your Emergency Fund to Checking to cover the gap.",
+      "requires_user_approval": true
+    },
+    {
+      "action_type": "budget_cut",
+      "description": "Pause discretionary spending (dining out) for the next 4 days."
+    }
+  ],
+  "decision_trace": [
+    { "factor": "Income decreased", "detail": "Projected freelance income fell below the rent threshold" },
+    { "factor": "Rent approaching", "detail": "$1,100 due in 4 days" },
+    { "factor": "Shortfall probability increased", "detail": "8% -> 34%" },
+    { "factor": "User preference", "detail": "Risk tolerance: moderate" }
+  ]
+}

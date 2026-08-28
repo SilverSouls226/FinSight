@@ -11,6 +11,11 @@ import 'service_exceptions.dart';
 /// Real implementation of [FinancialStateService], calling Sanjani's
 /// State API: `GET {baseUrl}/users/{userId}/financial-state`.
 ///
+/// The exact route isn't nailed down by docs/api_contracts.md (only the
+/// JSON payload shape is) — this path is this module's working assumption.
+/// If Sanjani's actual route differs, only the `Uri.parse` line below needs
+/// to change; the JSON parsing already matches Contract 2 exactly.
+///
 /// Response body MUST match the "Financial State Snapshot" contract in
 /// docs/api_contracts.md. This class never imports backend code or
 /// touches a database — it only speaks JSON over HTTP.
