@@ -98,39 +98,44 @@ narrative required for judging:
 
 This proves continuous adaptation end-to-end without any backend running.
 
-## Integration steps for Sanjani (State API) and Sameer (AI Brain API)
+## Live Backend Integration
 
-The app is already wired for a one-line switch to live data — **no screen
-or widget code needs to change**.
+The app is already wired for a one-line switch from mock data to live
+APIs — **no screen or widget code needs to change**.
 
-1. Open `lib/services/api_config.dart` and set `baseUrl` to the deployed
-   backend URL.
-2. Open `lib/state/providers.dart` and flip:
-   ```dart
-   const bool useMockServices = false;
-   ```
-3. Ensure the backend exposes:
-   - `GET {baseUrl}/users/{userId}/financial-state` → a single
-     `Financial State Snapshot` JSON object (Contract 2 in
-     `docs/api_contracts.md`). This route isn't pinned down by the shared
-     contract doc (only the payload shape is) — it's this module's working
-     assumption. If Sanjani's real route differs, update the one
-     `Uri.parse` call in `lib/services/api_financial_state_service.dart`.
-   - `POST {baseUrl}/api/evaluate/{userId}` (Sameer's AI Brain endpoint) →
-     request body is the `Financial State Snapshot` JSON (Contract 2),
-     response body is a single `Contextual Intervention` JSON object
-     (Contract 3) — not an array. `ApiInterventionService` fetches the
-     snapshot via `FinancialStateService` to build the request, then wraps
-     the single response object in a one-element list so the rest of the
-     app still sees `List<ContextualIntervention>`. A `204 No Content` or
-     empty body is treated as "no intervention right now", not an error. A
-     bare JSON array or `{"interventions": [...]}` is also accepted
-     defensively, in case the response shape changes.
-4. That's it. `ApiFinancialStateService` / `ApiInterventionService`
-   (`lib/services/api_financial_state_service.dart`,
-   `lib/services/api_intervention_service.dart`) take over from the mock
-   services automatically via the provider wiring in
-   `lib/state/providers.dart`.
+**Where the base URL is set:** one place, `lib/services/api_config.dart`:
+```dart
+static const String baseUrl = 'https://TODO-backend-url.example.com';
+```
+Set this to the deployed FastAPI backend URL. Nothing else in the app
+hardcodes a URL.
+
+**How mock mode is disabled:** one flag, `lib/state/providers.dart`:
+```dart
+const bool useMockServices = false;
+```
+Flipping this swaps the Riverpod providers from `Mock*Service` to
+`Api*Service`. Every screen consumes the same providers either way.
+
+**Financial state endpoint (Sanjani) — ⚠️ ROUTE IS TBD:**
+`ApiFinancialStateService` currently calls
+`GET {baseUrl}/users/{userId}/financial-state`. **This route has not been
+confirmed by Sanjani** — the shared contract (`docs/api_contracts.md`)
+only defines the *payload* shape (Contract 2), not the route. This is a
+working placeholder, not a confirmed integration. When she confirms the
+real route, update the single `Uri.parse(...)` line in
+`lib/services/api_financial_state_service.dart` — nothing else changes.
+Expected response JSON: a single `Financial State Snapshot` object
+(Contract 2) — see `test/fixtures/financial_state_snapshot.json`.
+
+**Intervention endpoint (Sameer) — ✅ confirmed:**
+`ApiInterventionService` calls `POST {baseUrl}/api/evaluate/{userId}`
+with the current `Financial State Snapshot` JSON (Contract 2) as the
+request body (fetched first via `FinancialStateService`). Expected
+response JSON: a single `Contextual Intervention` object (Contract 3, not
+an array) — see `test/fixtures/contextual_intervention.json`. A `204 No
+Content` or empty body means "no intervention right now" and is treated
+as a valid, non-error result, not a failure.
 
 ### Two additive, backward-compatible fields
 

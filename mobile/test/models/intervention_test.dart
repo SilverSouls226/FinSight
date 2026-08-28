@@ -54,6 +54,16 @@ void main() {
       expect(intervention.severity, InterventionSeverity.info);
       expect(intervention.suggestedActions, isEmpty);
     });
+
+    test('ignores an unexpected top-level requires_user_approval field without throwing', () {
+      // The contract only defines requires_user_approval per suggested
+      // action, not at the top level. A backend response that adds one
+      // anyway must not break parsing.
+      final json = {...validJson, 'requires_user_approval': true};
+      final intervention = ContextualIntervention.fromJson(json);
+      expect(intervention.interventionId, 'int_456');
+      expect(intervention.suggestedActions.first.requiresUserApproval, isTrue);
+    });
   });
 
   group('decision trace', () {
