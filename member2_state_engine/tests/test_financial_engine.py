@@ -1,4 +1,10 @@
-from app.services.financial_engine import calculate_safe_to_spend, project_variable_income, run_monte_carlo_simulation
+from datetime import datetime, timedelta, timezone
+from app.services.financial_engine import (
+    calculate_safe_to_spend,
+    project_variable_income,
+    run_monte_carlo_simulation,
+    next_occurrence,
+)
 
 def test_calculate_safe_to_spend():
     balance = 1500.0
@@ -25,3 +31,27 @@ def test_monte_carlo():
     risk = run_monte_carlo_simulation(1000, 1500, 200, 2000, num_simulations=100)
     # Risk should be a probability between 0 and 1
     assert 0.0 <= risk <= 1.0
+
+def test_next_occurrence_future_date_unchanged():
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    future = now + timedelta(days=10)
+    assert next_occurrence(future, "monthly", now) == future
+
+def test_next_occurrence_once_never_rolls_forward():
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    overdue = now - timedelta(days=40)
+    assert next_occurrence(overdue, "once", now) == overdue
+
+def test_next_occurrence_monthly_rolls_to_next_cycle():
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    overdue = now - timedelta(days=5)  # one 30-day cycle ago would still be in the past
+    rolled = next_occurrence(overdue, "monthly", now)
+    assert rolled >= now
+    assert rolled == overdue + timedelta(days=30)
+
+def test_next_occurrence_weekly_rolls_past_multiple_cycles():
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    overdue = now - timedelta(days=20)  # 2+ weeks overdue
+    rolled = next_occurrence(overdue, "weekly", now)
+    assert rolled >= now
+    assert (rolled - overdue).days % 7 == 0

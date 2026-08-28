@@ -1,5 +1,33 @@
 import numpy as np
+from datetime import datetime, timedelta
 from typing import List
+
+def next_occurrence(due_date: datetime, recurrence: str, now: datetime) -> datetime:
+    """
+    Rolls a recurring obligation's due_date forward to the next occurrence
+    at or after `now`. A "once" obligation is never rolled forward -- a
+    one-time bill stays on its original date even if it's overdue.
+
+    Uses fixed-day intervals (not calendar-month arithmetic) to avoid a
+    new dependency; close enough for a 30-day projection horizon.
+    """
+    if recurrence == "once" or due_date >= now:
+        return due_date
+
+    interval_days = {
+        "weekly": 7,
+        "monthly": 30,
+        "quarterly": 91,
+        "yearly": 365,
+    }.get(recurrence)
+
+    if interval_days is None:
+        return due_date
+
+    next_date = due_date
+    while next_date < now:
+        next_date += timedelta(days=interval_days)
+    return next_date
 
 def calculate_safe_to_spend(current_balance: float, upcoming_obligations_total: float, minimum_buffer: float = 100.0) -> float:
     """
