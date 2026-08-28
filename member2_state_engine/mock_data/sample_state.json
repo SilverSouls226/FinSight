@@ -1,0 +1,22 @@
+{
+  "user_id": "usr_123",
+  "last_updated": "2026-08-28T10:05:00Z",
+  "current_balances": {
+    "checking": 1250.00,
+    "savings": 5000.00
+  },
+  "projected_income_30_days": {
+    "estimated_amount": 3200.00,
+    "variance": 400.00
+  },
+  "upcoming_obligations": [
+    {
+      "name": "Apartment Rent",
+      "amount": 1100.00,
+      "due_date": "2026-09-01T00:00:00Z",
+      "category": "fixed_essential"
+    }
+  ],
+  "active_goals": [],
+  "safe_to_spend": 150.00
+}
