@@ -7,22 +7,98 @@ import '../theme/app_colors.dart';
 /// balance line with an income-uncertainty band (widening cone) and
 /// obligation due-date markers where the projected balance steps down.
 ///
+/// Interactive: draws itself in with an animation on load, and responds to
+/// touch/drag by showing a crosshair + tooltip with the day and projected
+/// value at that point.
+///
 /// All numbers are derived client-side from the Financial State Snapshot
 /// for display purposes only — Python remains the source of truth for any
 /// real forecasting/Monte Carlo output.
-class TwinBalanceChart extends StatelessWidget {
+class TwinBalanceChart extends StatefulWidget {
   final FinancialStateSnapshot snapshot;
   static const int horizonDays = 30;
 
   const TwinBalanceChart({super.key, required this.snapshot});
 
   @override
+  State<TwinBalanceChart> createState() => _TwinBalanceChartState();
+}
+
+class _TwinBalanceChartState extends State<TwinBalanceChart>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  double? _touchDay;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant TwinBalanceChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.snapshot != widget.snapshot) {
+      _controller
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateTouch(Offset localPosition, Size size) {
+    const leftPadding = 8.0;
+    const rightPadding = 8.0;
+    final chartWidth = size.width - leftPadding - rightPadding;
+    final rawDay =
+        ((localPosition.dx - leftPadding) / chartWidth) * TwinBalanceChart.horizonDays;
+    setState(() {
+      _touchDay = rawDay.clamp(0, TwinBalanceChart.horizonDays.toDouble());
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 16 / 10,
-      child: CustomPaint(
-        painter: _TwinChartPainter(snapshot: snapshot),
-        child: const SizedBox.expand(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (d) => _updateTouch(d.localPosition, size),
+            onPanUpdate: (d) => _updateTouch(d.localPosition, size),
+            onPanEnd: (_) => setState(() => _touchDay = null),
+            onTapDown: (d) => _updateTouch(d.localPosition, size),
+            onTapUp: (_) => Future.delayed(
+              const Duration(seconds: 2),
+              () {
+                if (mounted) setState(() => _touchDay = null);
+              },
+            ),
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return CustomPaint(
+                  painter: _TwinChartPainter(
+                    snapshot: widget.snapshot,
+                    progress: Curves.easeOutCubic.transform(_controller.value),
+                    touchDay: _touchDay,
+                  ),
+                  child: const SizedBox.expand(),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -38,8 +114,10 @@ class _Point {
 
 class _TwinChartPainter extends CustomPainter {
   final FinancialStateSnapshot snapshot;
+  final double progress;
+  final double? touchDay;
 
-  _TwinChartPainter({required this.snapshot});
+  _TwinChartPainter({required this.snapshot, this.progress = 1.0, this.touchDay});
 
   List<_Point> _buildSeries() {
     final startBalance = snapshot.currentBalances.checking;
@@ -69,10 +147,29 @@ class _TwinChartPainter extends CustomPainter {
     return points;
   }
 
+  _Point _interpolate(List<_Point> series, double day) {
+    if (day <= series.first.day) return series.first;
+    if (day >= series.last.day) return series.last;
+    final lowIdx = day.floor();
+    final a = series[lowIdx];
+    final b = series[(lowIdx + 1).clamp(0, series.length - 1)];
+    final t = day - a.day;
+    return _Point(
+      day,
+      a.mid + (b.mid - a.mid) * t,
+      a.upper + (b.upper - a.upper) * t,
+      a.lower + (b.lower - a.lower) * t,
+    );
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    final series = _buildSeries();
-    if (series.isEmpty) return;
+    final fullSeries = _buildSeries();
+    if (fullSeries.isEmpty) return;
+
+    // Reveal only up to `progress` of the horizon for the draw-in animation.
+    final visibleDayCount = (fullSeries.length * progress).ceil().clamp(2, fullSeries.length);
+    final series = fullSeries.sublist(0, visibleDayCount);
 
     const leftPadding = 8.0;
     const rightPadding = 8.0;
@@ -82,8 +179,8 @@ class _TwinChartPainter extends CustomPainter {
     final chartWidth = size.width - leftPadding - rightPadding;
     final chartHeight = size.height - topPadding - bottomPadding;
 
-    final minY = series.map((p) => p.lower).reduce((a, b) => a < b ? a : b);
-    final maxY = series.map((p) => p.upper).reduce((a, b) => a > b ? a : b);
+    final minY = fullSeries.map((p) => p.lower).reduce((a, b) => a < b ? a : b);
+    final maxY = fullSeries.map((p) => p.upper).reduce((a, b) => a > b ? a : b);
     final yRange = (maxY - minY).abs() < 1 ? 1.0 : (maxY - minY);
     final paddedMin = minY - yRange * 0.15;
     final paddedMax = maxY + yRange * 0.15;
@@ -129,6 +226,15 @@ class _TwinChartPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(midPath, midPaint);
 
+    // Leading-edge dot for the draw-in animation.
+    if (progress < 1.0) {
+      canvas.drawCircle(
+        Offset(xFor(series.last.day), yFor(series.last.mid)),
+        4,
+        Paint()..color = AppColors.accent,
+      );
+    }
+
     // Obligation markers
     final obligationPaint = Paint()..color = AppColors.pressure;
     final dashedLinePaint = Paint()
@@ -136,7 +242,7 @@ class _TwinChartPainter extends CustomPainter {
       ..strokeWidth = 1;
     for (final o in snapshot.upcomingObligations) {
       final day = o.dueDate.difference(snapshot.lastUpdated).inDays.toDouble();
-      if (day < 0 || day > TwinBalanceChart.horizonDays) continue;
+      if (day < 0 || day > series.last.day) continue;
       final x = xFor(day);
       canvas.drawLine(Offset(x, topPadding), Offset(x, size.height - bottomPadding), dashedLinePaint);
       canvas.drawCircle(Offset(x, topPadding), 3.5, obligationPaint);
@@ -149,6 +255,71 @@ class _TwinChartPainter extends CustomPainter {
       'Day 30',
       Offset(size.width - rightPadding - 42, size.height - bottomPadding + 6),
     );
+
+    // Touch crosshair + tooltip
+    final td = touchDay;
+    if (td != null && progress >= 1.0) {
+      final point = _interpolate(fullSeries, td);
+      final x = xFor(point.day);
+
+      final crosshairPaint = Paint()
+        ..color = AppColors.textSecondary.withValues(alpha: 0.5)
+        ..strokeWidth = 1;
+      canvas.drawLine(Offset(x, topPadding), Offset(x, size.height - bottomPadding), crosshairPaint);
+      canvas.drawCircle(Offset(x, yFor(point.mid)), 5, Paint()..color = AppColors.accent);
+      canvas.drawCircle(
+        Offset(x, yFor(point.mid)),
+        5,
+        Paint()
+          ..color = AppColors.background
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+
+      _drawTooltip(canvas, size, point, x, yFor(point.mid), topPadding);
+    }
+  }
+
+  void _drawTooltip(Canvas canvas, Size size, _Point point, double x, double y, double topPadding) {
+    final dayLabel = point.day.round() == 0 ? 'Today' : 'Day ${point.day.round()}';
+    final valueLabel = '₹${point.mid.toStringAsFixed(0)}';
+
+    final textPainter = TextPainter(
+      text: TextSpan(children: [
+        TextSpan(
+          text: '$dayLabel\n',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontWeight: FontWeight.w600),
+        ),
+        TextSpan(
+          text: valueLabel,
+          style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+      ]),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    const hPad = 8.0, vPad = 6.0;
+    final boxWidth = textPainter.width + hPad * 2;
+    final boxHeight = textPainter.height + vPad * 2;
+
+    double boxLeft = x - boxWidth / 2;
+    boxLeft = boxLeft.clamp(0.0, size.width - boxWidth);
+    double boxTop = y - boxHeight - 14;
+    if (boxTop < topPadding) boxTop = y + 14;
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(boxLeft, boxTop, boxWidth, boxHeight),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(rect, Paint()..color = AppColors.surfaceRaised);
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = AppColors.border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    textPainter.paint(canvas, Offset(boxLeft + hPad, boxTop + vPad));
   }
 
   void _drawText(Canvas canvas, String text, Offset offset) {
@@ -164,7 +335,9 @@ class _TwinChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TwinChartPainter oldDelegate) {
-    return oldDelegate.snapshot != snapshot;
+    return oldDelegate.snapshot != snapshot ||
+        oldDelegate.progress != progress ||
+        oldDelegate.touchDay != touchDay;
   }
 }
 
