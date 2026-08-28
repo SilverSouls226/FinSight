@@ -11,6 +11,7 @@ import 'package:finsentinel/screens/home/home_screen.dart';
 import 'package:finsentinel/services/financial_state_service.dart';
 import 'package:finsentinel/services/intervention_service.dart';
 import 'package:finsentinel/services/service_exceptions.dart';
+import 'package:finsentinel/services/user_profile_storage.dart';
 import 'package:finsentinel/state/providers.dart';
 import 'package:finsentinel/widgets/error_view.dart';
 import 'package:finsentinel/widgets/loading_view.dart';
@@ -54,12 +55,14 @@ Widget _wrap(Widget child, List<Override> overrides) {
   return ProviderScope(
     overrides: [
       userProfileProvider.overrideWith(
-        (ref) => UserProfileController()
-          ..complete(const UserProfile(
+        (ref) => UserProfileController(
+          UserProfileStorage(),
+          initial: const UserProfile(
             name: 'Test User',
             riskTolerance: RiskTolerance.moderate,
             priorities: [],
-          )),
+          ),
+        ),
       ),
       ...overrides,
     ],

@@ -11,6 +11,7 @@ import '../services/intervention_service.dart';
 import '../services/mock_financial_state_service.dart';
 import '../services/mock_intervention_service.dart';
 import '../services/simulation_service.dart';
+import '../services/user_profile_storage.dart';
 
 /// ---------------------------------------------------------------------
 /// INTEGRATION SWITCH
@@ -95,20 +96,35 @@ final interventionsProvider =
 });
 
 /// ---------------------------------------------------------------------
-/// Onboarding / user profile (local, on-device)
+/// Onboarding / user profile (local, on-device, persisted)
 /// ---------------------------------------------------------------------
 
+final userProfileStorageProvider = Provider<UserProfileStorage>((ref) {
+  return UserProfileStorage();
+});
+
 class UserProfileController extends StateNotifier<UserProfile?> {
-  UserProfileController() : super(null);
+  UserProfileController(this._storage, {UserProfile? initial}) : super(initial);
 
-  void complete(UserProfile profile) => state = profile;
+  final UserProfileStorage _storage;
 
-  void reset() => state = null;
+  void complete(UserProfile profile) {
+    state = profile;
+    _storage.save(profile);
+  }
+
+  void reset() {
+    state = null;
+    _storage.clear();
+  }
 }
 
+/// Default wiring: starts with no saved profile (onboarding shows).
+/// main.dart overrides this with the profile loaded from disk (if any)
+/// before the first frame, so a returning user skips onboarding.
 final userProfileProvider =
     StateNotifierProvider<UserProfileController, UserProfile?>(
-  (ref) => UserProfileController(),
+  (ref) => UserProfileController(ref.watch(userProfileStorageProvider)),
 );
 
 /// ---------------------------------------------------------------------

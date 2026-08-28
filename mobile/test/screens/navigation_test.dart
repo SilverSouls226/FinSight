@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:finsentinel/app.dart';
 import 'package:finsentinel/models/intervention.dart';
@@ -63,6 +64,13 @@ class _FakeInterventionService implements InterventionService {
 }
 
 void main() {
+  setUp(() {
+    // Completing onboarding in these tests calls UserProfileController's
+    // real persistence path, which needs shared_preferences' plugin
+    // channel mocked out in a test environment.
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('completing onboarding reveals the main bottom-navigation shell', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: FinSentinelApp()));
     await tester.pumpAndSettle();
