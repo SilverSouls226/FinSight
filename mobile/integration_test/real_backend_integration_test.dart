@@ -14,7 +14,11 @@
 // numbers can be pinned down for the rent-collision and healthy-state
 // comparisons. InterventionService is left as the app's real wiring:
 // ApiInterventionService, POSTing to Sameer's real /api/evaluate/{user_id}.
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -23,6 +27,26 @@ import 'package:finsentinel/app.dart';
 import 'package:finsentinel/models/financial_state_snapshot.dart';
 import 'package:finsentinel/services/financial_state_service.dart';
 import 'package:finsentinel/state/providers.dart';
+
+/// Captures REAL rendered pixels from the actual running app (not a mock,
+/// not a widget-tree assertion) via Flutter's own RenderRepaintBoundary —
+/// works on any platform, no OS-level screenshot tooling required.
+final _screenshotKey = GlobalKey();
+
+Future<void> _captureScreenshot(WidgetTester tester, String filename) async {
+  await tester.pumpAndSettle();
+  final boundary = _screenshotKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+  final image = await boundary.toImage(pixelRatio: 1.0);
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  final bytes = byteData!.buffer.asUint8List();
+  final dir = Directory('build/screenshots');
+  if (!dir.existsSync()) dir.createSync(recursive: true);
+  await File('${dir.path}/$filename.png').writeAsBytes(bytes);
+}
+
+Widget _wrapForScreenshot(Widget child) {
+  return RepaintBoundary(key: _screenshotKey, child: child);
+}
 
 /// Rent-collision scenario exactly as specified for this integration test:
 /// Checking ₹150, Savings ₹5000, Rent ₹1100 due soon, Projected income
@@ -118,17 +142,19 @@ void main() {
             // interventionServiceProvider is left as the app's real wiring
             // (ApiInterventionService) — this is the actual thing under test.
           ],
-          child: const FinSentinelApp(),
+          child: _wrapForScreenshot(const FinSentinelApp()),
         ),
       );
       await tester.pumpAndSettle();
 
       await _completeOnboarding(tester);
       await _waitForRealNetworkCall(tester);
+      await _captureScreenshot(tester, '1_home_financial_weather');
 
       await tester.tap(find.text('Alerts'));
       await _waitForRealNetworkCall(tester);
       await tester.pumpAndSettle();
+      await _captureScreenshot(tester, '2_high_risk_intervention_feed');
 
       // The severity badge, title, and summary below come ENTIRELY from
       // Sameer's real backend response — nothing here is computed by Flutter.
@@ -139,6 +165,7 @@ void main() {
       expect(find.byType(InkWell), findsWidgets);
       await tester.tap(find.byType(InkWell).first);
       await tester.pumpAndSettle();
+      await _captureScreenshot(tester, '3_intervention_detail_explanation_and_action');
 
       expect(find.text('WHY THIS MATTERS'), findsOneWidget);
       expect(find.text('SUGGESTED ACTIONS'), findsOneWidget);
@@ -155,7 +182,7 @@ void main() {
           overrides: [
             financialStateServiceProvider.overrideWithValue(_HealthyFinancialStateService()),
           ],
-          child: const FinSentinelApp(),
+          child: _wrapForScreenshot(const FinSentinelApp()),
         ),
       );
       await tester.pumpAndSettle();
@@ -166,6 +193,7 @@ void main() {
       await tester.tap(find.text('Alerts'));
       await _waitForRealNetworkCall(tester);
       await tester.pumpAndSettle();
+      await _captureScreenshot(tester, '4_healthy_state_intervention_feed');
 
       // Must NOT be the same high-severity rent-collision output — proves
       // the app is reacting to the backend's real decision, not showing
