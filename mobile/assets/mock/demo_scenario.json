@@ -1,0 +1,223 @@
+{
+  "user_id": "usr_123",
+  "stages": [
+    {
+      "stage_id": "stable",
+      "label": "Stable",
+      "trigger_event": "Initial state",
+      "snapshot": {
+        "user_id": "usr_123",
+        "last_updated": "2026-08-28T08:00:00Z",
+        "current_balances": {
+          "checking": 1250.00,
+          "savings": 5000.00
+        },
+        "projected_income_30_days": {
+          "estimated_amount": 3200.00,
+          "variance": 400.00
+        },
+        "upcoming_obligations": [
+          {
+            "name": "Apartment Rent",
+            "amount": 1100.00,
+            "due_date": "2026-09-04T00:00:00Z",
+            "category": "fixed_essential"
+          },
+          {
+            "name": "Streaming Subscriptions",
+            "amount": 45.00,
+            "due_date": "2026-09-02T00:00:00Z",
+            "category": "discretionary"
+          }
+        ],
+        "active_goals": [
+          {
+            "name": "Emergency Fund",
+            "target_amount": 10000.00,
+            "current_amount": 5000.00,
+            "priority": "high"
+          },
+          {
+            "name": "New Laptop",
+            "target_amount": 1500.00,
+            "current_amount": 400.00,
+            "priority": "medium"
+          }
+        ],
+        "safe_to_spend": 850.00,
+        "shortfall_probability_30d": 0.08
+      },
+      "interventions": [
+        {
+          "intervention_id": "int_001",
+          "user_id": "usr_123",
+          "timestamp": "2026-08-28T08:00:00Z",
+          "severity": "info",
+          "title": "You're on track",
+          "summary": "Your Emergency Fund goal is 50% funded and cash flow looks steady for the next 30 days.",
+          "explanation": "Projected income of ₹3,200 comfortably covers upcoming obligations of ₹1,145, leaving a healthy safe-to-spend buffer of ₹850. Shortfall risk is low at 8%.",
+          "suggested_actions": [
+            {
+              "action_type": "info",
+              "description": "No action needed. Keep contributing to Emergency Fund to reach your goal faster.",
+              "requires_user_approval": false
+            }
+          ],
+          "decision_trace": [
+            { "factor": "Income stable", "detail": "Projected income ₹3,200 with normal variance (₹400)" },
+            { "factor": "Obligations manageable", "detail": "₹1,145 due across rent and subscriptions" },
+            { "factor": "Shortfall probability low", "detail": "8% chance of shortfall in 30 days" },
+            { "factor": "User preference", "detail": "Risk tolerance: moderate — no intervention threshold crossed" }
+          ]
+        }
+      ]
+    },
+    {
+      "stage_id": "pressure",
+      "label": "Pressure",
+      "trigger_event": "Freelance payment delayed",
+      "snapshot": {
+        "user_id": "usr_123",
+        "last_updated": "2026-08-28T14:30:00Z",
+        "current_balances": {
+          "checking": 320.00,
+          "savings": 5000.00
+        },
+        "projected_income_30_days": {
+          "estimated_amount": 2400.00,
+          "variance": 650.00
+        },
+        "upcoming_obligations": [
+          {
+            "name": "Apartment Rent",
+            "amount": 1100.00,
+            "due_date": "2026-09-04T00:00:00Z",
+            "category": "fixed_essential"
+          },
+          {
+            "name": "Streaming Subscriptions",
+            "amount": 45.00,
+            "due_date": "2026-09-02T00:00:00Z",
+            "category": "discretionary"
+          }
+        ],
+        "active_goals": [
+          {
+            "name": "Emergency Fund",
+            "target_amount": 10000.00,
+            "current_amount": 5000.00,
+            "priority": "high"
+          },
+          {
+            "name": "New Laptop",
+            "target_amount": 1500.00,
+            "current_amount": 400.00,
+            "priority": "medium"
+          }
+        ],
+        "safe_to_spend": 120.00,
+        "shortfall_probability_30d": 0.41
+      },
+      "interventions": [
+        {
+          "intervention_id": "int_002",
+          "user_id": "usr_123",
+          "timestamp": "2026-08-28T14:30:00Z",
+          "severity": "high",
+          "title": "Potential cash-flow collision",
+          "summary": "You may be short on cash for your rent payment on Sept 4th.",
+          "explanation": "A freelance payment you were expecting was delayed, cutting projected income from ₹3,200 to ₹2,400 and widening uncertainty (variance ₹650). Your rent of ₹1,100 is due in a few days and your checking balance has dropped to ₹320. Shortfall probability has risen from 8% to 41%.",
+          "suggested_actions": [
+            {
+              "action_type": "transfer",
+              "description": "Transfer ₹780 from your Emergency Fund to Checking to cover the rent gap.",
+              "requires_user_approval": true
+            },
+            {
+              "action_type": "budget_cut",
+              "description": "Pause discretionary spending (streaming subscriptions, dining out) until the freelance payment clears.",
+              "requires_user_approval": false
+            }
+          ],
+          "decision_trace": [
+            { "factor": "Income decreased", "detail": "Freelance payment delayed — projected income ₹3,200 → ₹2,400" },
+            { "factor": "Rent approaching", "detail": "₹1,100 due in 4 days, checking balance only ₹320" },
+            { "factor": "Shortfall probability increased", "detail": "8% → 41%" },
+            { "factor": "User preference", "detail": "Risk tolerance: moderate — threshold crossed, intervention triggered" }
+          ]
+        }
+      ]
+    },
+    {
+      "stage_id": "resolved",
+      "label": "Resolved",
+      "trigger_event": "Freelance payment arrived",
+      "snapshot": {
+        "user_id": "usr_123",
+        "last_updated": "2026-08-28T18:15:00Z",
+        "current_balances": {
+          "checking": 1850.00,
+          "savings": 5000.00
+        },
+        "projected_income_30_days": {
+          "estimated_amount": 3200.00,
+          "variance": 350.00
+        },
+        "upcoming_obligations": [
+          {
+            "name": "Apartment Rent",
+            "amount": 1100.00,
+            "due_date": "2026-09-04T00:00:00Z",
+            "category": "fixed_essential"
+          },
+          {
+            "name": "Streaming Subscriptions",
+            "amount": 45.00,
+            "due_date": "2026-09-02T00:00:00Z",
+            "category": "discretionary"
+          }
+        ],
+        "active_goals": [
+          {
+            "name": "Emergency Fund",
+            "target_amount": 10000.00,
+            "current_amount": 5000.00,
+            "priority": "high"
+          },
+          {
+            "name": "New Laptop",
+            "target_amount": 1500.00,
+            "current_amount": 400.00,
+            "priority": "medium"
+          }
+        ],
+        "safe_to_spend": 900.00,
+        "shortfall_probability_30d": 0.06
+      },
+      "interventions": [
+        {
+          "intervention_id": "int_003",
+          "user_id": "usr_123",
+          "timestamp": "2026-08-28T18:15:00Z",
+          "severity": "info",
+          "title": "Cash flow stabilized",
+          "summary": "The delayed freelance payment has arrived. Your shortfall risk has dropped back to normal.",
+          "explanation": "Checking balance increased to ₹1,850 after the delayed freelance payment cleared. Projected income is back to ₹3,200 with reduced uncertainty. Shortfall probability fell from 41% to 6%.",
+          "suggested_actions": [
+            {
+              "action_type": "info",
+              "description": "No action needed. Emergency Fund transfer suggestion has been withdrawn.",
+              "requires_user_approval": false
+            }
+          ],
+          "decision_trace": [
+            { "factor": "Income received", "detail": "Delayed freelance payment cleared into checking" },
+            { "factor": "Rent risk removed", "detail": "₹1,100 rent now covered with ₹900 safe-to-spend buffer" },
+            { "factor": "Shortfall probability decreased", "detail": "41% → 6%" },
+            { "factor": "User preference", "detail": "Risk tolerance: moderate — no further action required" }
+          ]
+        }
+      ]
+    }
+  ]
+}
