@@ -1,40 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/financial_state_snapshot.dart';
+import '../state/providers.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 import '../utils/twin_projection.dart';
 
-/// A lightweight, on-device "Twin Assistant" chat panel.
-///
-/// This is intentionally NOT a call to any LLM/backend — none of the three
-/// real services expose a freeform-chat endpoint. It answers a handful of
-/// common questions by pattern-matching against the same
-/// [FinancialStateSnapshot] already rendered on this screen, so answers are
-/// always consistent with what the user sees above.
-class TwinAssistantCard extends StatefulWidget {
+/// A chat panel powered by Sameer's real Groq-backed `/api/chat/{user_id}`
+/// endpoint -- answers any freeform question grounded in the same
+/// [FinancialStateSnapshot] rendered above it, not just a fixed script.
+/// Falls back to a small local answer set only if the network call fails,
+/// so the assistant never goes silent.
+class TwinAssistantCard extends ConsumerStatefulWidget {
   final FinancialStateSnapshot snapshot;
 
   const TwinAssistantCard({super.key, required this.snapshot});
 
   @override
-  State<TwinAssistantCard> createState() => _TwinAssistantCardState();
+  ConsumerState<TwinAssistantCard> createState() => _TwinAssistantCardState();
 }
 
 class _ChatMessage {
   final String text;
   final bool fromUser;
-  const _ChatMessage(this.text, this.fromUser);
+  final bool isFallback;
+  const _ChatMessage(this.text, this.fromUser, {this.isFallback = false});
 }
 
-class _TwinAssistantCardState extends State<TwinAssistantCard> {
+class _TwinAssistantCardState extends ConsumerState<TwinAssistantCard> with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
+  late final AnimationController _pulseController;
+  bool _isThinking = false;
+  bool _lastAnswerWasFallback = false;
 
   static const _suggestions = [
     'Am I safe this month?',
-    'What\'s due next?',
+    'What should I cut back on?',
     'How are my goals?',
     'What\'s my runway?',
   ];
@@ -42,9 +46,11 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
   @override
   void initState() {
     super.initState();
-    _messages.add(_ChatMessage(
-      "Hi, I'm your Twin Assistant. Ask me about your balance, obligations, "
-      "goals, or runway — I read straight from the twin above.",
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
+    _messages.add(const _ChatMessage(
+      "Hi, I'm your Twin Assistant, backed by a real AI model. Ask me "
+      "anything about your finances — not just the suggestions below.",
       false,
     ));
   }
@@ -53,6 +59,7 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -67,26 +74,49 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
     });
   }
 
-  void _send(String raw) {
+  Future<void> _send(String raw) async {
     final text = raw.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isThinking) return;
+
     setState(() {
       _messages.add(_ChatMessage(text, true));
-      _messages.add(_ChatMessage(_answer(text), false));
+      _isThinking = true;
     });
     _controller.clear();
     _scrollToBottom();
+
+    String answer;
+    bool wasFallback = false;
+    try {
+      final chatService = ref.read(chatServiceProvider);
+      answer = await chatService.ask(text, widget.snapshot);
+      if (answer.trim().isEmpty) {
+        answer = _localAnswer(text);
+        wasFallback = true;
+      }
+    } catch (_) {
+      answer = _localAnswer(text);
+      wasFallback = true;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isThinking = false;
+      _lastAnswerWasFallback = wasFallback;
+      _messages.add(_ChatMessage(answer, false, isFallback: wasFallback));
+    });
+    _scrollToBottom();
   }
 
-  String _answer(String question) {
+  /// Local, rule-based fallback -- only used if the real API is unreachable.
+  String _localAnswer(String question) {
     final q = question.toLowerCase();
     final snapshot = widget.snapshot;
 
     if (q.contains('safe') || q.contains('afford') || q.contains('risk')) {
       final risk = snapshot.shortfallProbability30d;
-      final riskText = risk != null
-          ? ' Your modeled shortfall risk is ${(risk * 100).toStringAsFixed(0)}%.'
-          : '';
+      final riskText =
+          risk != null ? ' Your modeled shortfall risk is ${(risk * 100).toStringAsFixed(0)}%.' : '';
       return 'You have ${formatCurrency(snapshot.safeToSpend)} safe to spend right now.$riskText';
     }
 
@@ -94,45 +124,28 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
       if (snapshot.upcomingObligations.isEmpty) {
         return 'You have no upcoming obligations tracked right now.';
       }
-      final sorted = [...snapshot.upcomingObligations]
-        ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      final sorted = [...snapshot.upcomingObligations]..sort((a, b) => a.dueDate.compareTo(b.dueDate));
       final next = sorted.first;
       final days = next.dueDate.difference(snapshot.lastUpdated).inDays;
-      return '${next.name} — ${formatCurrency(next.amount)}, due in $days day${days == 1 ? '' : 's'}. '
-          'Total upcoming obligations: ${formatCurrency(snapshot.totalUpcomingObligations)}.';
+      return '${next.name} — ${formatCurrency(next.amount)}, due in $days day${days == 1 ? '' : 's'}.';
     }
 
     if (q.contains('goal')) {
-      if (snapshot.activeGoals.isEmpty) {
-        return 'You don\'t have any active goals set up yet.';
-      }
-      final lines = snapshot.activeGoals.map((g) =>
-          '${g.name}: ${(g.progress * 100).toStringAsFixed(0)}% (${formatCurrency(g.currentAmount)} of ${formatCurrency(g.targetAmount)})');
-      return lines.join('\n');
+      if (snapshot.activeGoals.isEmpty) return 'You don\'t have any active goals set up yet.';
+      return snapshot.activeGoals
+          .map((g) => '${g.name}: ${(g.progress * 100).toStringAsFixed(0)}%')
+          .join(', ');
     }
 
-    if (q.contains('runway') || q.contains('last') || q.contains('negative')) {
+    if (q.contains('runway')) {
       final runway = TwinProjection.runwayDays(snapshot);
-      if (runway == null) {
-        return 'Your projected balance stays positive for the full 30-day horizon. No runway concern right now.';
-      }
-      return 'At current pace, your balance is projected to go negative in $runway day${runway == 1 ? '' : 's'}.';
+      return runway == null
+          ? 'Your projected balance stays positive for the full 30-day horizon.'
+          : 'At current pace, your balance is projected to go negative in $runway day${runway == 1 ? '' : 's'}.';
     }
 
-    if (q.contains('income')) {
-      final income = snapshot.projectedIncome30Days;
-      return 'Projected income over the next 30 days: ${formatCurrency(income.estimatedAmount)} '
-          '(± ${formatCurrency(income.variance)}).';
-    }
-
-    if (q.contains('balance') || q.contains('checking') || q.contains('savings')) {
-      return 'Checking: ${formatCurrency(snapshot.currentBalances.checking)} · '
-          'Savings: ${formatCurrency(snapshot.currentBalances.savings)} · '
-          'Total: ${formatCurrency(snapshot.totalBalance)}.';
-    }
-
-    return "I can tell you about your safe-to-spend amount, upcoming obligations, "
-        "goals, runway, income, or balances — try asking about one of those.";
+    return 'I couldn\'t reach the AI model just now, but I can still tell you about your '
+        'safe-to-spend, obligations, goals, or runway from what\'s on screen.';
   }
 
   @override
@@ -145,13 +158,31 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentSoft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.psychology_alt_rounded, color: AppColors.accent, size: 18),
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    final glow = 0.5 + (_pulseController.value * 0.5);
+                    return Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.accent.withValues(alpha: 0.9),
+                            AppColors.accent.withValues(alpha: 0.4),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(9),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accent.withValues(alpha: _isThinking ? glow * 0.55 : 0.0),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
+                    );
+                  },
                 ),
                 const SizedBox(width: 10),
                 const Text(
@@ -164,23 +195,20 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
                   ),
                 ),
                 const Spacer(),
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(color: AppColors.stable, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 4),
-                const Text('live twin data', style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                _StatusBadge(thinking: _isThinking, lastWasFallback: _lastAnswerWasFallback),
               ],
             ),
             const SizedBox(height: 12),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240),
+              constraints: const BoxConstraints(maxHeight: 280),
               child: ListView.builder(
                 controller: _scrollController,
                 shrinkWrap: true,
-                itemCount: _messages.length,
-                itemBuilder: (context, i) => _MessageBubble(message: _messages[i]),
+                itemCount: _messages.length + (_isThinking ? 1 : 0),
+                itemBuilder: (context, i) {
+                  if (i == _messages.length) return const _TypingBubble();
+                  return _MessageBubble(message: _messages[i]);
+                },
               ),
             ),
             const SizedBox(height: 10),
@@ -192,7 +220,7 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
                         label: Text(s, style: const TextStyle(fontSize: 12)),
                         backgroundColor: AppColors.surfaceRaised,
                         side: const BorderSide(color: AppColors.border),
-                        onPressed: () => _send(s),
+                        onPressed: _isThinking ? null : () => _send(s),
                       ))
                   .toList(),
             ),
@@ -202,9 +230,10 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    enabled: !_isThinking,
                     style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'Ask about your finances…',
+                      hintText: 'Ask anything about your finances…',
                       hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                       filled: true,
                       fillColor: AppColors.surfaceRaised,
@@ -227,8 +256,14 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  onPressed: () => _send(_controller.text),
-                  icon: const Icon(Icons.send_rounded, size: 18),
+                  onPressed: _isThinking ? null : () => _send(_controller.text),
+                  icon: _isThinking
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.send_rounded, size: 18),
                   style: IconButton.styleFrom(backgroundColor: AppColors.accent),
                 ),
               ],
@@ -236,6 +271,104 @@ class _TwinAssistantCardState extends State<TwinAssistantCard> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final bool thinking;
+  final bool lastWasFallback;
+
+  const _StatusBadge({required this.thinking, required this.lastWasFallback});
+
+  @override
+  Widget build(BuildContext context) {
+    if (thinking) {
+      return const Text('thinking…', style: TextStyle(color: AppColors.textMuted, fontSize: 10));
+    }
+    final color = lastWasFallback ? AppColors.pressure : AppColors.stable;
+    final label = lastWasFallback ? 'offline mode' : 'AI-powered';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+      ],
+    );
+  }
+}
+
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const _TypingDots(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final t = ((_controller.value - i * 0.2) % 1.0).clamp(0.0, 1.0);
+            final scale = 0.5 + 0.5 * (t < 0.5 ? t * 2 : (1 - t) * 2);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Opacity(
+                opacity: 0.4 + scale * 0.6,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
@@ -267,7 +400,9 @@ class _MessageBubble extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isUser ? AppColors.accentSoft : AppColors.surfaceRaised,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(
+                    color: message.isFallback ? AppColors.pressure.withValues(alpha: 0.4) : AppColors.border,
+                  ),
                 ),
                 child: Text(
                   message.text,

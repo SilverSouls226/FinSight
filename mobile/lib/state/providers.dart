@@ -4,9 +4,11 @@ import '../mock/demo_scenario.dart';
 import '../models/financial_state_snapshot.dart';
 import '../models/intervention.dart';
 import '../models/user_profile.dart';
+import '../services/api_chat_service.dart';
 import '../services/api_financial_state_service.dart';
 import '../services/api_intervention_service.dart';
 import '../services/api_simulation_service.dart';
+import '../services/chat_service.dart';
 import '../services/financial_state_service.dart';
 import '../services/intervention_service.dart';
 import '../services/mock_financial_state_service.dart';
@@ -71,6 +73,14 @@ final interventionServiceProvider = Provider<InterventionService>((ref) {
   return ApiInterventionService(
     financialStateService: ref.watch(financialStateServiceProvider),
   );
+});
+
+final chatServiceProvider = Provider<ChatService>((ref) {
+  // Sameer's chat endpoint lives on his AI Brain service alongside
+  // /api/evaluate, so it isn't gated by a mock flag -- it's real or
+  // nothing (the Twin Assistant card falls back to local answers on
+  // failure rather than needing a mock implementation here).
+  return ApiChatService();
 });
 
 final simulationServiceProvider = Provider<SimulationService>((ref) {
