@@ -89,9 +89,26 @@ To ensure all 4 members can work in parallel without blocking each other, the ar
   - Build a chat-based or feed-based interface where the agent proactively pushes insights, alongside a basic view of the evolving financial model.
 - [ ] **Phase 6: Voice & Empathy Integration (ElevenLabs - Bonus/Extra Points)**
   *Note: To be executed once the core MVP (Phases 1-5) is functional.*
-  - **Member 3 (AI Brain):** Send the plain text `explanation` from the Intervention API to the ElevenLabs TTS API to generate an audio file URL.
-  - **Member 4 (Frontend):** Implement an audio player to automatically or manually play the Agent's voice alerts (e.g., a natural voice saying, "Hey, just a heads up about your upcoming rent...").
-  - **Objective:** Enhance the user experience from a passive text feed into an empathetic, human-like financial assistant.
+  **What we are doing with ElevenLabs:**
+  1.  **Proactive Audio Alerts:** When Member 3 (The Agent) generates a "High Severity" alert (e.g., an upcoming cash shortfall), the system will use the ElevenLabs TTS API to generate a highly empathetic, natural-sounding audio file of the explanation. The frontend will display a "Listen" button (or autoplay if configured) to read the warning aloud.
+  2.  **Conversational Query (Stretch Goal):** Allow the user to press a microphone button and ask, "Can I afford to go to a concert this weekend?" The Agent processes the request, and ElevenLabs speaks the contextual answer back.
+
+### 7. Technical Architecture & Tech Stack (Proposed)
+To move fast during the hackathon, we will standardize on the following tech stack:
+
+*   **Frontend (Member 4):** 
+    *   **Framework:** Next.js (React) + Tailwind CSS.
+    *   **Voice Integration:** HTML5 Web Audio API to play ElevenLabs audio streams.
+*   **Backend & State API (Member 2):**
+    *   **Framework:** Python (FastAPI) - Chosen for fast development and seamless integration with AI libraries.
+    *   **Database:** Supabase (PostgreSQL) - Fast setup, handles relational financial state perfectly.
+*   **Agentic Brain (Member 3):**
+    *   **Framework:** Python + LangChain (or LlamaIndex).
+    *   **LLM:** OpenAI (GPT-4o) or Anthropic (Claude 3.5 Sonnet) for the reasoning loop.
+    *   **Voice:** ElevenLabs Python SDK for generating TTS audio files.
+*   **Data Ingestion (Member 1):**
+    *   **Framework:** Python (FastAPI/Serverless).
+    *   **Tools:** Tesseract (for receipt OCR), Twilio API (for mocking SMS interception).
 
 ---
 *Note: This concludes the full analysis of Problem Statement 1 and the team delegation plan.*
