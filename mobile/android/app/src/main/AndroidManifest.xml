@@ -34,6 +34,19 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- another_telephony's IncomingSmsReceiver is never registered by the
+             plugin itself (no manifest entry, no dynamic registerReceiver call
+             for SMS_RECEIVED): it must be declared here or real incoming SMS
+             is never delivered to it, even with permission granted and the
+             app in the foreground. -->
+        <receiver
+            android:name="com.shounakmulay.telephony.sms.IncomingSmsReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

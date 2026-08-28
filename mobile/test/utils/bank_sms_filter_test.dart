@@ -9,6 +9,7 @@ void main() {
       expect(looksLikeBankSms('AD-HDFCBK-S'), isTrue);
       expect(looksLikeBankSms('VM-SBIBNK'), isTrue);
       expect(looksLikeBankSms('icicib'), isTrue); // case-insensitive
+      expect(looksLikeBankSms('JD-SBIUPI-S'), isTrue); // real UPI credit sender
     });
 
     test('rejects unrelated senders', () {

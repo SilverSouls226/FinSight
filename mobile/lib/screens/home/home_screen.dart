@@ -288,6 +288,25 @@ class _SmsIngestionCard extends ConsumerWidget {
               'separate from your Financial State above.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
             ),
+            if (state.enabled) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () => controller.simulateIncomingSms(
+                    'HDFCBK',
+                    'Dear Customer, your A/c XX1234 is credited by Rs.1.00 on 28-08-26 '
+                        'by UPI from FRIEND. Ref No 999888777. -HDFC Bank',
+                  ),
+                  icon: const Icon(Icons.bolt_rounded, size: 16),
+                  label: const Text('Simulate test SMS'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    side: const BorderSide(color: AppColors.accent),
+                  ),
+                ),
+              ),
+            ],
             if (state.permissionDenied) ...[
               const SizedBox(height: 10),
               const Text(

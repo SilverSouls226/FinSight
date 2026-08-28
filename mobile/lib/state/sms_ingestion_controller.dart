@@ -82,6 +82,14 @@ class SmsIngestionController extends StateNotifier<SmsIngestionState> {
     state = state.copyWith(enabled: false);
   }
 
+  /// Feeds a message through the exact same path a real incoming SMS
+  /// would take (bank-sender filter -> real ingestion HTTP call). Exists
+  /// because some bank alerts now arrive over RCS Business Messaging
+  /// rather than classic SMS, which never fires `SMS_RECEIVED` and so
+  /// can't be captured by [SmsListener] — this lets the rest of the
+  /// pipeline still be exercised/tested for real.
+  Future<void> simulateIncomingSms(String? sender, String? body) => _handleIncomingSms(sender, body);
+
   Future<void> _handleIncomingSms(String? sender, String? body) async {
     if (!state.enabled) return;
     if (body == null || body.trim().isEmpty) return;
