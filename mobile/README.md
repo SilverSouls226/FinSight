@@ -132,8 +132,15 @@ providers either way.
 single `Financial State Snapshot` object (Contract 2) — see
 `test/fixtures/financial_state_snapshot.json`. Her service also exposes
 `POST /obligations`, `POST /goals`, and a real `POST /simulate/{userId}`
-Monte Carlo endpoint (not yet wired into the Simulation screen, which
-still uses a client-side heuristic — see `MockSimulationService`).
+Monte Carlo endpoint — wired into the Simulation screen via
+`ApiSimulationService`, gated by the same `useMockFinancialState` flag
+(same backend service). Her endpoint returns risk as 0–100 percentages;
+`ApiSimulationService` converts to the 0–1 fractions the rest of the app
+uses. She doesn't return a post-purchase safe-to-spend figure or
+recommendation text, so those two remain derived locally from the
+snapshot + her real risk numbers — presentation only, the risk
+percentages and the `is_safe` flag (the actual financial decision) are
+entirely hers.
 
 **Intervention endpoint (Sameer) — ✅ confirmed:**
 `ApiInterventionService` calls `POST {sameerBaseUrl}/api/evaluate/{userId}`

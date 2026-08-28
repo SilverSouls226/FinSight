@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finsentinel/models/financial_state_snapshot.dart';
 import 'package:finsentinel/services/api_financial_state_service.dart';
 import 'package:finsentinel/services/api_intervention_service.dart';
+import 'package:finsentinel/services/api_simulation_service.dart';
 import 'package:finsentinel/services/financial_state_service.dart';
 import 'package:finsentinel/services/intervention_service.dart';
 import 'package:finsentinel/services/mock_financial_state_service.dart';
 import 'package:finsentinel/services/mock_intervention_service.dart';
+import 'package:finsentinel/services/simulation_service.dart';
 import 'package:finsentinel/state/providers.dart';
 
 class _StubFinancialStateService implements FinancialStateService {
@@ -37,6 +39,11 @@ void main() {
       );
       expect(mockIntervention, isA<InterventionService>());
       expect(apiIntervention, isA<InterventionService>());
+
+      final SimulationService mockSimulation = MockSimulationService();
+      final SimulationService apiSimulation = ApiSimulationService();
+      expect(mockSimulation, isA<SimulationService>());
+      expect(apiSimulation, isA<SimulationService>());
     });
   });
 }

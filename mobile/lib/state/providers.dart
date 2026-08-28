@@ -6,6 +6,7 @@ import '../models/intervention.dart';
 import '../models/user_profile.dart';
 import '../services/api_financial_state_service.dart';
 import '../services/api_intervention_service.dart';
+import '../services/api_simulation_service.dart';
 import '../services/financial_state_service.dart';
 import '../services/intervention_service.dart';
 import '../services/mock_financial_state_service.dart';
@@ -73,7 +74,13 @@ final interventionServiceProvider = Provider<InterventionService>((ref) {
 });
 
 final simulationServiceProvider = Provider<SimulationService>((ref) {
-  return MockSimulationService();
+  // Sanjani's real /simulate/{user_id} endpoint lives on the same State
+  // Engine service as financial-state, so this follows that same flag —
+  // no separate "useMockSimulation" flag needed.
+  if (useMockFinancialState) {
+    return MockSimulationService();
+  }
+  return ApiSimulationService();
 });
 
 /// ---------------------------------------------------------------------

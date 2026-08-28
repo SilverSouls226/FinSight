@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:finsentinel/models/financial_state_snapshot.dart';
 import 'package:finsentinel/models/intervention.dart';
+import 'package:finsentinel/models/simulation_result.dart';
 import 'package:finsentinel/screens/simulation/simulation_screen.dart';
 import 'package:finsentinel/services/financial_state_service.dart';
 import 'package:finsentinel/services/intervention_service.dart';
+import 'package:finsentinel/services/simulation_service.dart';
 import 'package:finsentinel/state/providers.dart';
 
 class _FakeFinancialStateService implements FinancialStateService {
@@ -37,6 +39,27 @@ class _EmptyInterventionService implements InterventionService {
   Future<List<ContextualIntervention>> fetchInterventions(String userId) async => [];
 }
 
+/// The real ApiSimulationService makes a genuine HTTP call, which
+/// flutter_test's binding deliberately blocks — these widget tests only
+/// need to verify the screen renders a result, not the service's own
+/// network behavior (see api_simulation_service_test.dart for that).
+class _FakeSimulationService implements SimulationService {
+  @override
+  Future<SimulationResult> simulatePurchase({
+    required FinancialStateSnapshot snapshot,
+    required double purchaseAmount,
+  }) async {
+    return SimulationResult(
+      purchaseAmount: purchaseAmount,
+      shortfallRiskWithoutPurchase: 0.08,
+      shortfallRiskWithPurchase: 0.36,
+      safeToSpendAfterPurchase: snapshot.safeToSpend - purchaseAmount,
+      recommendation: 'Test recommendation.',
+      isAffordable: false,
+    );
+  }
+}
+
 void main() {
   testWidgets('running a simulation shows both risk bars and a recommendation', (tester) async {
     await tester.pumpWidget(
@@ -44,6 +67,7 @@ void main() {
         overrides: [
           financialStateServiceProvider.overrideWithValue(_FakeFinancialStateService()),
           interventionServiceProvider.overrideWithValue(_EmptyInterventionService()),
+          simulationServiceProvider.overrideWithValue(_FakeSimulationService()),
         ],
         child: const MaterialApp(home: SimulationScreen()),
       ),
@@ -67,6 +91,7 @@ void main() {
         overrides: [
           financialStateServiceProvider.overrideWithValue(_FakeFinancialStateService()),
           interventionServiceProvider.overrideWithValue(_EmptyInterventionService()),
+          simulationServiceProvider.overrideWithValue(_FakeSimulationService()),
         ],
         child: const MaterialApp(home: SimulationScreen()),
       ),
