@@ -17,16 +17,17 @@ import '../services/user_profile_storage.dart';
 /// INTEGRATION SWITCHES
 /// ---------------------------------------------------------------------
 /// Two independent flags so either backend can be flipped to live
-/// independently of the other — e.g. Sameer's AI Brain is confirmed and
-/// integration-tested while Sanjani's State API route is still TBD, so
-/// the financial state stays mocked but interventions hit the real
-/// backend. Set a real ApiConfig.baseUrl (see lib/services/api_config.dart)
-/// alongside either flip. No screen or widget code changes required either way.
-const bool useMockFinancialState = true;
+/// independently of the other. Set the matching ApiConfig base URL (see
+/// lib/services/api_config.dart) alongside either flip. No screen or
+/// widget code changes required either way.
+///
+/// integration/full-team: BOTH Sanjani's State Engine
+/// (GET /financial-state/{user_id}) and Sameer's AI Brain
+/// (POST /api/evaluate/{user_id}) are confirmed live and integration-tested
+/// here, so both are false on this branch. Flip either back to true to
+/// return that piece to offline mock mode.
+const bool useMockFinancialState = false;
 
-/// integration/kalyan-sameer: Sameer's POST /api/evaluate/{user_id} is
-/// confirmed and live-tested here, so this is false on this branch only.
-/// Flip back to true to return to full offline mock mode.
 const bool useMockIntervention = false;
 
 /// Backward-compat convenience: true only when both backends are mocked —

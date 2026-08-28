@@ -100,42 +100,90 @@ This proves continuous adaptation end-to-end without any backend running.
 
 ## Live Backend Integration
 
-The app is already wired for a one-line switch from mock data to live
-APIs — **no screen or widget code needs to change**.
+The app is wired for a one-line switch (per backend) from mock data to
+live APIs — **no screen or widget code needs to change**. As of
+`integration/full-team`, **both** backends are confirmed live and
+integration-tested — real ingestion → real state → real AI reasoning →
+real UI, verified end-to-end including on a physical device.
 
-**Where the base URL is set:** one place, `lib/services/api_config.dart`:
+**Where the base URLs are set:** one place, `lib/services/api_config.dart`
+— two constants because Sanjani's and Sameer's services are independent
+FastAPI apps, not one gateway:
 ```dart
-static const String baseUrl = 'https://TODO-backend-url.example.com';
+static const String sanjaniBaseUrl = 'http://127.0.0.1:8002'; // her local port
+static const String sameerBaseUrl  = 'http://127.0.0.1:8000'; // his local port
 ```
-Set this to the deployed FastAPI backend URL. Nothing else in the app
-hardcodes a URL.
+Nothing else in the app hardcodes a URL.
 
-**How mock mode is disabled:** one flag, `lib/state/providers.dart`:
+**How mock mode is disabled:** two independent flags,
+`lib/state/providers.dart`:
 ```dart
-const bool useMockServices = false;
+const bool useMockFinancialState = false; // Sanjani
+const bool useMockIntervention = false;   // Sameer
 ```
-Flipping this swaps the Riverpod providers from `Mock*Service` to
-`Api*Service`. Every screen consumes the same providers either way.
+Flipping either swaps that Riverpod provider from `Mock*Service` to
+`Api*Service`, independently of the other. Every screen consumes the same
+providers either way.
 
-**Financial state endpoint (Sanjani) — ⚠️ ROUTE IS TBD:**
-`ApiFinancialStateService` currently calls
-`GET {baseUrl}/users/{userId}/financial-state`. **This route has not been
-confirmed by Sanjani** — the shared contract (`docs/api_contracts.md`)
-only defines the *payload* shape (Contract 2), not the route. This is a
-working placeholder, not a confirmed integration. When she confirms the
-real route, update the single `Uri.parse(...)` line in
-`lib/services/api_financial_state_service.dart` — nothing else changes.
-Expected response JSON: a single `Financial State Snapshot` object
-(Contract 2) — see `test/fixtures/financial_state_snapshot.json`.
+**Financial state endpoint (Sanjani) — ✅ confirmed:**
+`ApiFinancialStateService` calls `GET {sanjaniBaseUrl}/financial-state/{userId}`
+— confirmed directly from her real service
+(`member2_state_engine/app/api/endpoints.py`). Expected response JSON: a
+single `Financial State Snapshot` object (Contract 2) — see
+`test/fixtures/financial_state_snapshot.json`. Her service also exposes
+`POST /obligations`, `POST /goals`, and a real `POST /simulate/{userId}`
+Monte Carlo endpoint (not yet wired into the Simulation screen, which
+still uses a client-side heuristic — see `MockSimulationService`).
 
 **Intervention endpoint (Sameer) — ✅ confirmed:**
-`ApiInterventionService` calls `POST {baseUrl}/api/evaluate/{userId}`
+`ApiInterventionService` calls `POST {sameerBaseUrl}/api/evaluate/{userId}`
 with the current `Financial State Snapshot` JSON (Contract 2) as the
-request body (fetched first via `FinancialStateService`). Expected
-response JSON: a single `Contextual Intervention` object (Contract 3, not
-an array) — see `test/fixtures/contextual_intervention.json`. A `204 No
-Content` or empty body means "no intervention right now" and is treated
-as a valid, non-error result, not a failure.
+request body (fetched first via `FinancialStateService` — this works
+whether that snapshot came from Sanjani's real service or a mock).
+Expected response JSON: a single `Contextual Intervention` object
+(Contract 3, not an array) — see `test/fixtures/contextual_intervention.json`.
+A `204 No Content` or empty body means "no intervention right now" and is
+treated as a valid, non-error result, not a failure.
+
+### Running the full four-service stack locally
+
+```bash
+# 1. Sameer's AI Brain (needs backend/.env with a real GROQ_API_KEY —
+#    falls back to a deterministic explainer if the key is missing/invalid)
+cd backend && uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+# 2. Sanjani's State Engine
+cd member2_state_engine && uvicorn app.main:app --host 127.0.0.1 --port 8002
+
+# 3. Skandan's Ingestion service (not called by Flutter directly — feeds Sanjani)
+cd member1_ingestion && uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+Skandan's and Sanjani's services aren't wired to each other automatically
+— they're independent services connected only by the shared JSON
+contract. To push a real event through the full pipeline before opening
+the app:
+```bash
+# Ingest raw SMS -> NormalizedFinancialEvent
+curl -X POST http://127.0.0.1:8001/ingest -H "Content-Type: application/json" \
+  -d '{"user_id":"usr_123","source":"sms","raw_text":"Credited INR 800.00 to a/c XX1234 from FreelanceClient on 28-08-26."}'
+
+# Feed that event into Sanjani's state (paste the JSON from above)
+curl -X POST http://127.0.0.1:8002/events -H "Content-Type: application/json" -d '<event JSON>'
+
+# Add an obligation directly (Skandan's SMS parser only produces income/expense, not bills)
+curl -X POST http://127.0.0.1:8002/obligations -H "Content-Type: application/json" \
+  -d '{"user_id":"usr_123","name":"Apartment Rent","amount":1100.0,"due_date":"2026-09-04T00:00:00Z","category":"fixed_essential"}'
+```
+Then open the app — Home/Alerts will fetch the real resulting state and
+real intervention.
+
+**On a physical Android device over USB**, tunnel both ports before
+running:
+```bash
+adb reverse tcp:8000 tcp:8000
+adb reverse tcp:8002 tcp:8002
+```
 
 ### Two additive, backward-compatible fields
 

@@ -15,7 +15,7 @@ void main() {
     test('parses a successful 200 response into a FinancialStateSnapshot', () async {
       final client = MockClient((request) async {
         expect(request.method, 'GET');
-        expect(request.url.path, '/users/usr_123/financial-state');
+        expect(request.url.path, '/financial-state/usr_123');
         return http.Response(_readFixture('financial_state_snapshot.json'), 200);
       });
 

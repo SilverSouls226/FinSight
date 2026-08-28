@@ -30,7 +30,7 @@ class ApiInterventionService implements InterventionService {
     http.Client? client,
     String? baseUrl,
   })  : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? ApiConfig.baseUrl;
+        _baseUrl = baseUrl ?? ApiConfig.sameerBaseUrl;
 
   final FinancialStateService financialStateService;
   final http.Client _client;

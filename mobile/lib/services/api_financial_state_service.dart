@@ -9,12 +9,11 @@ import 'financial_state_service.dart';
 import 'service_exceptions.dart';
 
 /// Real implementation of [FinancialStateService], calling Sanjani's
-/// State API: `GET {baseUrl}/users/{userId}/financial-state`.
+/// State Engine: `GET {baseUrl}/financial-state/{user_id}`.
 ///
-/// The exact route isn't nailed down by docs/api_contracts.md (only the
-/// JSON payload shape is) — this path is this module's working assumption.
-/// If Sanjani's actual route differs, only the `Uri.parse` line below needs
-/// to change; the JSON parsing already matches Contract 2 exactly.
+/// Route confirmed directly from Sanjani's real service
+/// (member2_state_engine/app/api/endpoints.py) during the full-team
+/// integration test — no longer a placeholder guess.
 ///
 /// Response body MUST match the "Financial State Snapshot" contract in
 /// docs/api_contracts.md. This class never imports backend code or
@@ -22,14 +21,14 @@ import 'service_exceptions.dart';
 class ApiFinancialStateService implements FinancialStateService {
   ApiFinancialStateService({http.Client? client, String? baseUrl})
       : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? ApiConfig.baseUrl;
+        _baseUrl = baseUrl ?? ApiConfig.sanjaniBaseUrl;
 
   final http.Client _client;
   final String _baseUrl;
 
   @override
   Future<FinancialStateSnapshot> fetchSnapshot(String userId) async {
-    final uri = Uri.parse('$_baseUrl/users/$userId/financial-state');
+    final uri = Uri.parse('$_baseUrl/financial-state/$userId');
 
     late http.Response response;
     try {
