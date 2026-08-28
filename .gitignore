@@ -64,3 +64,6 @@ yarn-error.log*
 *.swo
 .DS_Store
 Thumbs.db
+
+# ── Editor vaults ────────────────────────────────────────────────────────
+.obsidian/

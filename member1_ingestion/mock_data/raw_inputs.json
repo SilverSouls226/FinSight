@@ -1,0 +1,22 @@
+[
+  {
+    "user_id": "usr_999",
+    "source": "sms",
+    "raw_text": "Rs 1,249.50 debited from a/c **4567 on 28-08-26 to Amazon."
+  },
+  {
+    "user_id": "usr_999",
+    "source": "sms",
+    "raw_text": "Credited INR 50,000 to a/c **4567 on 01-09-26 from FreelanceClient."
+  },
+  {
+    "user_id": "usr_999",
+    "source": "sms",
+    "raw_text": "Invalid SMS text that should fail parsing."
+  },
+  {
+    "user_id": "usr_999",
+    "source": "receipt",
+    "raw_text": "Uber Eats Receipt. Total: $45.50. Paid on Aug 28. Not a recurring bill."
+  }
+]

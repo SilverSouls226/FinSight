@@ -1,4 +1,4 @@
-# CSI ORIGIN 2026: Autonomous Financial Management for Variable-Income Users
+# FinSentinel: Autonomous Financial Management for Variable-Income Users
 ## Implementation Plan & Documentation
 
 ### 1. Goal Description
@@ -93,22 +93,28 @@ To ensure all 4 members can work in parallel without blocking each other, the ar
   1.  **Proactive Audio Alerts:** When Member 3 (The Agent) generates a "High Severity" alert (e.g., an upcoming cash shortfall), the system will use the ElevenLabs TTS API to generate a highly empathetic, natural-sounding audio file of the explanation. The frontend will display a "Listen" button (or autoplay if configured) to read the warning aloud.
   2.  **Conversational Query (Stretch Goal):** Allow the user to press a microphone button and ask, "Can I afford to go to a concert this weekend?" The Agent processes the request, and ElevenLabs speaks the contextual answer back.
 
-### 7. Technical Architecture & Tech Stack (Proposed)
-To move fast during the hackathon, we will standardize on the following tech stack:
+### 7. Technical Architecture & Tech Stack (FINAL)
+To move fast during the hackathon, we have frozen the following tech stack for FinSentinel:
 
-*   **Frontend (Member 4):** 
-    *   **Framework:** Next.js (React) + Tailwind CSS.
-    *   **Voice Integration:** HTML5 Web Audio API to play ElevenLabs audio streams.
-*   **Backend & State API (Member 2):**
-    *   **Framework:** Python (FastAPI) - Chosen for fast development and seamless integration with AI libraries.
-    *   **Database:** Supabase (PostgreSQL) - Fast setup, handles relational financial state perfectly.
-*   **Agentic Brain (Member 3):**
-    *   **Framework:** Python + LangChain (or LlamaIndex).
-    *   **LLM:** OpenAI (GPT-4o) or Anthropic (Claude 3.5 Sonnet) for the reasoning loop.
-    *   **Voice:** ElevenLabs Python SDK for generating TTS audio files.
-*   **Data Ingestion (Member 1):**
-    *   **Framework:** Python (FastAPI/Serverless).
-    *   **Tools:** Tesseract (for receipt OCR), Twilio API (for mocking SMS interception).
+*   **Mobile (Frontend - Member 4):** 
+    *   **Technology:** Flutter + Dart
+    *   **Purpose:** Complete Android/iOS mobile app. 
+    *   **Charts:** Flutter charts / CustomPainter for Financial Digital Twin + simulation visualizations.
+    *   **Build:** Flutter APK for Hackathon demo/testing.
+*   **Backend & APIs (Member 2):**
+    *   **Technology:** Python + FastAPI
+    *   **Purpose:** APIs, orchestration, business logic. 
+    *   **Validation:** Pydantic for strict request/response and AI JSON validation.
+    *   **Communication:** REST API + JSON for Flutter <-> FastAPI and internal team module contracts.
+    *   **Deployment:** Render
+*   **Database:**
+    *   **Technology:** SQLite
+    *   **Purpose:** Store Users, transactions, goals, obligations, and financial state (fast for hackathon).
+*   **AI Models & Engines (Members 1 & 3):**
+    *   **Data/Document AI (M1):** Gemini API (Extracts receipts, bills, PDFs, messy financial inputs).
+    *   **Agentic AI (M3):** Groq API (Ultra-fast LLM inference for proactive reasoning, prioritization, interventions).
+    *   **Financial Engine (M2/M3):** Python + NumPy + Pandas (Deterministic financial calculations).
+    *   **Forecasting (M2):** NumPy Monte Carlo (Probabilistic forecasting for variable-income projections).
 
 ---
-*Note: This concludes the full analysis of Problem Statement 1 and the team delegation plan.*
+*Note: This concludes the full analysis and technical foundation of FinSentinel.*
