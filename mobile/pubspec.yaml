@@ -44,6 +44,9 @@ dependencies:
   # Currency / date formatting
   intl: ^0.20.2
 
+  # Persists the onboarding profile on-device so it survives app restarts
+  shared_preferences: ^2.3.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

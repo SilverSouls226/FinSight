@@ -102,4 +102,22 @@ class UserProfile {
         if (primaryGoalName != null) 'primary_goal_name': primaryGoalName,
         if (primaryGoalTarget != null) 'primary_goal_target': primaryGoalTarget,
       };
+
+  /// Inverse of [toJson] — used to restore the profile saved on-device
+  /// (see lib/services/user_profile_storage.dart) so onboarding doesn't
+  /// re-run on every app restart.
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      name: json['name'] as String? ?? '',
+      riskTolerance: RiskTolerance.values.firstWhere(
+        (r) => r.name == json['risk_tolerance'],
+        orElse: () => RiskTolerance.moderate,
+      ),
+      priorities: ((json['priorities'] as List?) ?? const [])
+          .expand((p) => FinancialPriority.values.where((fp) => fp.name == p))
+          .toList(),
+      primaryGoalName: json['primary_goal_name'] as String?,
+      primaryGoalTarget: (json['primary_goal_target'] as num?)?.toDouble(),
+    );
+  }
 }
