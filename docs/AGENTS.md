@@ -25,5 +25,6 @@ You MUST base all your coding decisions on the following files located in the `d
 
 ## 4. Hackathon Directives
 *   **Speed & Parallelization:** Prioritize getting a working MVP for your user's specific module. Use the JSON contracts to mock external dependencies.
+*   **Bonus Phases (Phase 6+):** Any phases numbered 6 or above (e.g., ElevenLabs integration) are considered "extra credit." Do not attempt or generate code for these phases until the base application (Phases 1-5) is fully integrated and functional, unless explicitly directed by the user.
 *   **Resilience:** Remember that the system must handle incomplete/noisy data gracefully. Write defensive code.
 *   **Explainability:** If you are helping Member 3 (AI Brain), ensure the prompt engineering forces the LLM to explain *why* it gives advice, respecting user risk tolerance.
