@@ -25,9 +25,14 @@ class RootShell extends ConsumerWidget {
   }
 }
 
-class _MainNavigation extends ConsumerWidget {
+class _MainNavigation extends ConsumerStatefulWidget {
   const _MainNavigation();
 
+  @override
+  ConsumerState<_MainNavigation> createState() => _MainNavigationState();
+}
+
+class _MainNavigationState extends ConsumerState<_MainNavigation> with WidgetsBindingObserver {
   static const _screens = [
     HomeScreen(),
     DigitalTwinScreen(),
@@ -37,7 +42,34 @@ class _MainNavigation extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Real bank SMS detected while backgrounded is handled by a separate
+    // isolate with no access to this app's Riverpod state (see
+    // background_sms_handler.dart) -- it updates the real backend balance
+    // directly but can't refresh this UI. Refetch whenever the user
+    // returns to the app so a balance change from a backgrounded SMS
+    // (the common case: sending money means being in the UPI app, not
+    // here) shows up without needing a manual restart.
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(financialSnapshotProvider);
+      ref.invalidate(interventionsProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final index = ref.watch(rootTabIndexProvider);
 
     return Scaffold(
