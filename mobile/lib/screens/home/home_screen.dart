@@ -237,10 +237,12 @@ class _DemoControlPanel extends ConsumerWidget {
 
 /// Real bank SMS interception (Android only): toggling this on requests
 /// SMS permission, then forwards any incoming message from a recognized
-/// bank sender to Skandan's real ingestion service. Detected events are
-/// listed below the toggle — this does NOT automatically update the
-/// Financial State shown above (Skandan's and Sanjani's services aren't
-/// wired to each other; see README "Live Backend Integration").
+/// bank sender to Skandan's real ingestion service, and — once turned into
+/// a structured event — pushes it into Sanjani's Financial State, so the
+/// balance/projections shown above update from real incoming money without
+/// the user doing anything. This is the point of the feature: someone with
+/// variable/informal income sees their actual, current safe-to-spend
+/// number as money arrives, not a stale manually-entered figure.
 class _SmsIngestionCard extends ConsumerWidget {
   const _SmsIngestionCard();
 
@@ -283,9 +285,8 @@ class _SmsIngestionCard extends ConsumerWidget {
               ],
             ),
             const Text(
-              'Sends incoming bank SMS text to the ingestion service while '
-              'the app is open. Detected events appear below — this is '
-              'separate from your Financial State above.',
+              'Detects incoming bank SMS while the app is open and updates '
+              'your balance above automatically — no manual entry needed.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
             ),
             if (state.enabled) ...[

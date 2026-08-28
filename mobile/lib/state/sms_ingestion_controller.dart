@@ -1,24 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/normalized_financial_event.dart';
+import '../services/api_event_sync_service.dart';
 import '../services/api_ingestion_service.dart';
+import '../services/event_sync_service.dart';
 import '../services/ingestion_service.dart';
 import '../services/sms_listener.dart';
 import '../utils/bank_sms_filter.dart';
-import 'providers.dart' show demoUserId;
+import 'providers.dart' show demoUserId, financialSnapshotProvider;
 
 /// Real bank SMS interception (Android only): listens for incoming SMS
-/// while the app is open, filters to likely bank senders, and forwards
-/// matches to Skandan's real ingestion service.
-///
-/// IMPORTANT SCOPE NOTE: ingesting an event here only gets it turned into
-/// a Normalized Financial Event by Skandan's service — it does NOT
-/// automatically update Sanjani's Financial State (his and her services
-/// aren't wired to each other; see README "Live Backend Integration").
-/// This screen shows what was detected, not a live-updating balance.
+/// while the app is open, filters to likely bank senders, forwards matches
+/// to Skandan's real ingestion service to get a structured event, then
+/// pushes that event into Sanjani's Financial State so it actually moves
+/// the balances/projections the rest of the app is built on -- this is
+/// the point of the feature: people with variable/informal income seeing
+/// their real balance update as money actually arrives.
 
 final ingestionServiceProvider = Provider<IngestionService>((ref) {
   return ApiIngestionService();
+});
+
+final eventSyncServiceProvider = Provider<EventSyncService>((ref) {
+  return ApiEventSyncService();
 });
 
 final smsListenerProvider = Provider<SmsListener>((ref) {
@@ -54,10 +58,13 @@ class SmsIngestionState {
 }
 
 class SmsIngestionController extends StateNotifier<SmsIngestionState> {
-  SmsIngestionController(this._listener, this._ingestionService) : super(const SmsIngestionState());
+  SmsIngestionController(this._listener, this._ingestionService, this._eventSync, this._ref)
+      : super(const SmsIngestionState());
 
   final SmsListener _listener;
   final IngestionService _ingestionService;
+  final EventSyncService _eventSync;
+  final Ref _ref;
   bool _listenerRegistered = false;
 
   Future<void> enable() async {
@@ -95,20 +102,34 @@ class SmsIngestionController extends StateNotifier<SmsIngestionState> {
     if (body == null || body.trim().isEmpty) return;
     if (!looksLikeBankSms(sender)) return;
 
+    NormalizedFinancialEvent? event;
     try {
-      final event = await _ingestionService.ingestRawText(
+      event = await _ingestionService.ingestRawText(
         userId: demoUserId,
         source: 'sms',
         rawText: body,
       );
-      if (event != null) {
-        state = state.copyWith(
-          recentEvents: [event, ...state.recentEvents].take(10).toList(),
-          lastError: null,
-        );
-      }
     } catch (_) {
       state = state.copyWith(lastError: 'Could not reach the ingestion service.');
+      return;
+    }
+
+    if (event == null) return;
+
+    state = state.copyWith(
+      recentEvents: [event, ...state.recentEvents].take(10).toList(),
+      lastError: null,
+    );
+
+    try {
+      await _eventSync.submitEvent(event);
+      // Balance/projections/weather/twin all derive from this snapshot --
+      // refetch so the detected amount is reflected everywhere immediately.
+      _ref.invalidate(financialSnapshotProvider);
+    } catch (_) {
+      state = state.copyWith(
+        lastError: 'Detected the event but could not update your balance yet.',
+      );
     }
   }
 }
@@ -118,5 +139,7 @@ final smsIngestionControllerProvider =
   return SmsIngestionController(
     ref.watch(smsListenerProvider),
     ref.watch(ingestionServiceProvider),
+    ref.watch(eventSyncServiceProvider),
+    ref,
   );
 });
