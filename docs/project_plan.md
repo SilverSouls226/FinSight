@@ -85,8 +85,13 @@ To ensure all 4 members can work in parallel without blocking each other, the ar
     *   Build a feed/chat interface for the AI's proactive alerts (consuming M3's API).
     *   Build dynamic visualizers for the evolving financial state (consuming M2's API).
     *   Build a profile setup page (to capture risk tolerance and goals).
-*   **Output:** The final functioning app for the judges.
-*   **Handoff:** Integrates all APIs. (M4 uses mock API responses until M2 & M3 are ready).
+- [ ] **Phase 5: User Interface (UI)**
+  - Build a chat-based or feed-based interface where the agent proactively pushes insights, alongside a basic view of the evolving financial model.
+- [ ] **Phase 6: Voice & Empathy Integration (ElevenLabs - Bonus/Extra Points)**
+  *Note: To be executed once the core MVP (Phases 1-5) is functional.*
+  - **Member 3 (AI Brain):** Send the plain text `explanation` from the Intervention API to the ElevenLabs TTS API to generate an audio file URL.
+  - **Member 4 (Frontend):** Implement an audio player to automatically or manually play the Agent's voice alerts (e.g., a natural voice saying, "Hey, just a heads up about your upcoming rent...").
+  - **Objective:** Enhance the user experience from a passive text feed into an empathetic, human-like financial assistant.
 
 ---
 *Note: This concludes the full analysis of Problem Statement 1 and the team delegation plan.*
