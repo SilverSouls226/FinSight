@@ -22,6 +22,14 @@ class SMSParser:
         r"(?i)(?:credited|deposited).+?(?:rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?).*?(?:from|by)\s*([a-zA-Z0-9\s]+?)(?:\.|\s)"
     )
 
+    # Real bank alerts often lead with the amount before "credited", e.g.
+    # "Rs.1.00 credited to HDFC Bank A/c XX2525 ... from VPA name@bank (UPI 123)"
+    # -- INCOME_PATTERN above requires "credited" before the amount and won't
+    # match this word order, so it's tried as a fallback.
+    INCOME_PATTERN_AMOUNT_FIRST = re.compile(
+        r"(?i)(?:rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:is\s*)?(?:credited|deposited).*?(?:from|by)\s*([^\n(]+?)(?:\s*\(|\.|$)"
+    )
+
     def parse(self, sms_text: str) -> Optional[Dict[str, Any]]:
         """
         Extracts amount, vendor, and type from SMS text.
@@ -45,11 +53,11 @@ class SMSParser:
             }
             
         # Try income
-        income_match = self.INCOME_PATTERN.search(sms_text)
+        income_match = self.INCOME_PATTERN.search(sms_text) or self.INCOME_PATTERN_AMOUNT_FIRST.search(sms_text)
         if income_match:
             amount_str = income_match.group(1).replace(",", "")
             vendor = income_match.group(2).strip()
-            
+
             return {
                 "source": "sms",
                 "type": "income",
@@ -60,7 +68,7 @@ class SMSParser:
                 "is_recurring": False,
                 "timestamp": datetime.now(timezone.utc)
             }
-            
+
         # If no match, return a low confidence partial match or None.
         # For simplicity in this hackathon, we return None for failed parsing.
         return None
