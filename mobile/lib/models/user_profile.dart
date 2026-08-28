@@ -65,12 +65,21 @@ class UserProfile {
   final String? primaryGoalName;
   final double? primaryGoalTarget;
 
+  /// Minimum cash reserve to protect when computing safe-to-spend. Local
+  /// display default only until synced — see ProfileSyncService, which
+  /// pushes this to Sanjani's `/users` endpoint where it actually affects
+  /// the real safe_to_spend calculation.
+  final double safetyBuffer;
+  final String preferredCurrency;
+
   const UserProfile({
     required this.name,
     required this.riskTolerance,
     required this.priorities,
     this.primaryGoalName,
     this.primaryGoalTarget,
+    this.safetyBuffer = 100.0,
+    this.preferredCurrency = 'INR',
   });
 
   UserProfile copyWith({
@@ -79,6 +88,8 @@ class UserProfile {
     List<FinancialPriority>? priorities,
     String? primaryGoalName,
     double? primaryGoalTarget,
+    double? safetyBuffer,
+    String? preferredCurrency,
   }) {
     return UserProfile(
       name: name ?? this.name,
@@ -86,6 +97,8 @@ class UserProfile {
       priorities: priorities ?? this.priorities,
       primaryGoalName: primaryGoalName ?? this.primaryGoalName,
       primaryGoalTarget: primaryGoalTarget ?? this.primaryGoalTarget,
+      safetyBuffer: safetyBuffer ?? this.safetyBuffer,
+      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
     );
   }
 
@@ -101,6 +114,8 @@ class UserProfile {
         'priorities': priorities.map((p) => p.name).toList(),
         if (primaryGoalName != null) 'primary_goal_name': primaryGoalName,
         if (primaryGoalTarget != null) 'primary_goal_target': primaryGoalTarget,
+        'safety_buffer': safetyBuffer,
+        'preferred_currency': preferredCurrency,
       };
 
   /// Inverse of [toJson] — used to restore the profile saved on-device
@@ -118,6 +133,8 @@ class UserProfile {
           .toList(),
       primaryGoalName: json['primary_goal_name'] as String?,
       primaryGoalTarget: (json['primary_goal_target'] as num?)?.toDouble(),
+      safetyBuffer: (json['safety_buffer'] as num?)?.toDouble() ?? 100.0,
+      preferredCurrency: json['preferred_currency'] as String? ?? 'INR',
     );
   }
 }

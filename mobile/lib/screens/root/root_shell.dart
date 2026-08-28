@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/providers.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/add_entry/add_entry_sheet.dart';
 import '../goals/goals_screen.dart';
 import '../home/home_screen.dart';
 import '../interventions/intervention_feed_screen.dart';
@@ -74,6 +75,11 @@ class _MainNavigationState extends ConsumerState<_MainNavigation> with WidgetsBi
 
     return Scaffold(
       body: IndexedStack(index: index, children: _screens),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => showAddEntrySheet(context),
+        tooltip: 'Add',
+        child: const Icon(Icons.add_rounded),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) => ref.read(rootTabIndexProvider.notifier).state = i,

@@ -6,13 +6,25 @@ import '../models/intervention.dart';
 import '../models/user_profile.dart';
 import '../services/api_chat_service.dart';
 import '../services/api_financial_state_service.dart';
+import '../services/api_goal_service.dart';
 import '../services/api_intervention_service.dart';
+import '../services/api_manual_entry_service.dart';
+import '../services/api_obligation_service.dart';
+import '../services/api_profile_sync_service.dart';
 import '../services/api_simulation_service.dart';
 import '../services/chat_service.dart';
 import '../services/financial_state_service.dart';
+import '../services/goal_service.dart';
 import '../services/intervention_service.dart';
+import '../services/manual_entry_service.dart';
 import '../services/mock_financial_state_service.dart';
+import '../services/mock_goal_service.dart';
 import '../services/mock_intervention_service.dart';
+import '../services/mock_manual_entry_service.dart';
+import '../services/mock_obligation_service.dart';
+import '../services/mock_profile_sync_service.dart';
+import '../services/obligation_service.dart';
+import '../services/profile_sync_service.dart';
 import '../services/simulation_service.dart';
 import '../services/user_profile_storage.dart';
 
@@ -53,11 +65,54 @@ final demoStagesProvider = FutureProvider<List<DemoStage>>((ref) async {
   return loader.loadStages();
 });
 
+/// The concrete mock instance -- exposed separately from
+/// [financialStateServiceProvider] (which is interface-typed) so the
+/// manual "Add" flow's mock services below can reach its mutation
+/// methods (addManualIncome, addManualObligation, ...) directly.
+final mockFinancialStateServiceProvider = Provider<MockFinancialStateService>((ref) {
+  return MockFinancialStateService(loader: ref.watch(demoScenarioLoaderProvider));
+});
+
 final financialStateServiceProvider = Provider<FinancialStateService>((ref) {
   if (useMockFinancialState) {
-    return MockFinancialStateService(loader: ref.watch(demoScenarioLoaderProvider));
+    return ref.watch(mockFinancialStateServiceProvider);
   }
   return ApiFinancialStateService();
+});
+
+/// ---------------------------------------------------------------------
+/// Manual "Add" flow services
+/// ---------------------------------------------------------------------
+/// All four follow the same Mock/Api split as everything else, gated by
+/// the same useMockFinancialState flag since they all target Sanjani's
+/// State Engine (or its mock stand-in).
+
+final manualEntryServiceProvider = Provider<ManualEntryService>((ref) {
+  if (useMockFinancialState) {
+    return MockManualEntryService(ref.watch(mockFinancialStateServiceProvider));
+  }
+  return ApiManualEntryService(userId: demoUserId);
+});
+
+final obligationServiceProvider = Provider<ObligationService>((ref) {
+  if (useMockFinancialState) {
+    return MockObligationService(ref.watch(mockFinancialStateServiceProvider));
+  }
+  return ApiObligationService(userId: demoUserId);
+});
+
+final goalServiceProvider = Provider<GoalService>((ref) {
+  if (useMockFinancialState) {
+    return MockGoalService(ref.watch(mockFinancialStateServiceProvider));
+  }
+  return ApiGoalService(userId: demoUserId);
+});
+
+final profileSyncServiceProvider = Provider<ProfileSyncService>((ref) {
+  if (useMockFinancialState) {
+    return MockProfileSyncService(ref.watch(mockFinancialStateServiceProvider));
+  }
+  return ApiProfileSyncService(userId: demoUserId);
 });
 
 final interventionServiceProvider = Provider<InterventionService>((ref) {
