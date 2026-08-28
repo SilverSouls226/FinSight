@@ -13,12 +13,25 @@ import '../services/mock_intervention_service.dart';
 import '../services/simulation_service.dart';
 
 /// ---------------------------------------------------------------------
-/// INTEGRATION SWITCH
+/// INTEGRATION SWITCHES
 /// ---------------------------------------------------------------------
-/// Flip this to `false` and set a real ApiConfig.baseUrl (see
-/// lib/services/api_config.dart) to switch the entire app from mock data
-/// to Sanjani's/Sameer's live APIs. No screen or widget code changes.
-const bool useMockServices = true;
+/// Two independent flags so either backend can be flipped to live
+/// independently of the other — e.g. Sameer's AI Brain is confirmed and
+/// integration-tested while Sanjani's State API route is still TBD, so
+/// the financial state stays mocked but interventions hit the real
+/// backend. Set a real ApiConfig.baseUrl (see lib/services/api_config.dart)
+/// alongside either flip. No screen or widget code changes required either way.
+const bool useMockFinancialState = true;
+
+/// integration/kalyan-sameer: Sameer's POST /api/evaluate/{user_id} is
+/// confirmed and live-tested here, so this is false on this branch only.
+/// Flip back to true to return to full offline mock mode.
+const bool useMockIntervention = false;
+
+/// Backward-compat convenience: true only when both backends are mocked —
+/// i.e. the default, fully-offline hackathon-demo configuration. Used
+/// purely to gate the judge-facing "Demo scenario" panel on Home.
+const bool useMockServices = useMockFinancialState && useMockIntervention;
 
 const String demoUserId = 'usr_123';
 
@@ -36,19 +49,22 @@ final demoStagesProvider = FutureProvider<List<DemoStage>>((ref) async {
 });
 
 final financialStateServiceProvider = Provider<FinancialStateService>((ref) {
-  if (useMockServices) {
+  if (useMockFinancialState) {
     return MockFinancialStateService(loader: ref.watch(demoScenarioLoaderProvider));
   }
   return ApiFinancialStateService();
 });
 
 final interventionServiceProvider = Provider<InterventionService>((ref) {
-  if (useMockServices) {
+  if (useMockIntervention) {
     return MockInterventionService(loader: ref.watch(demoScenarioLoaderProvider));
   }
   // Sameer's evaluate endpoint takes a Financial State Snapshot as input,
   // so the intervention service depends on the financial state service to
-  // build its request body (see api_intervention_service.dart).
+  // build its request body (see api_intervention_service.dart). This works
+  // whether financialStateServiceProvider above is Mock or Api — the real
+  // Sameer backend doesn't know or care whether the snapshot it receives
+  // came from a mock or from Sanjani's live State API.
   return ApiInterventionService(
     financialStateService: ref.watch(financialStateServiceProvider),
   );

@@ -48,6 +48,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # integration/kalyan-sameer: drives the REAL compiled app (real network,
+  # real rendering) via Flutter's own test binding, to verify against
+  # Sameer's real local FastAPI backend without relying on OS-level input
+  # injection. Bundled with the Flutter SDK — no pub.dev version needed.
+  integration_test:
+    sdk: flutter
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your

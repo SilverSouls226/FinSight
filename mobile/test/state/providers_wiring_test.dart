@@ -16,10 +16,17 @@ class _StubFinancialStateService implements FinancialStateService {
 
 void main() {
   group('mock/API service wiring', () {
-    test('useMockServices defaults to true for the hackathon demo', () {
-      // Guards against accidentally flipping the switch and shipping a
-      // build that requires a live backend to demo offline.
-      expect(useMockServices, isTrue);
+    test('useMockFinancialState stays true until Sanjani confirms a real route', () {
+      // Sanjani's State API route is not yet confirmed (see README "Live
+      // Backend Integration" section) — guards against accidentally
+      // pointing financialSnapshotProvider at an unconfirmed/guessed route.
+      expect(useMockFinancialState, isTrue);
+    });
+
+    test('useMockServices is only true when both backends are mocked', () {
+      // useMockServices is a derived convenience (gates the demo panel on
+      // Home) — it must never silently diverge from its two inputs.
+      expect(useMockServices, useMockFinancialState && useMockIntervention);
     });
 
     test('Mock* implementations satisfy the same interfaces as Api* implementations', () {
