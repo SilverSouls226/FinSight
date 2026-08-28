@@ -1,0 +1,4 @@
+pydantic
+groq
+faster-whisper
+websockets
