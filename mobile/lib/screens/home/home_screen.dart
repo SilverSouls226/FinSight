@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,7 @@ import '../../models/financial_state_snapshot.dart';
 import '../../models/intervention.dart';
 import '../../state/demo_scenario_controller.dart';
 import '../../state/providers.dart';
+import '../../state/sms_ingestion_controller.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/risk_estimator.dart';
 import '../../widgets/error_view.dart';
@@ -59,6 +61,8 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 _DemoControlPanel(),
+                const SizedBox(height: 16),
+                const _SmsIngestionCard(),
                 const SizedBox(height: 16),
                 interventionsAsync.when(
                   loading: () => const SizedBox.shrink(),
@@ -224,6 +228,116 @@ class _DemoControlPanel extends ConsumerWidget {
                 );
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Real bank SMS interception (Android only): toggling this on requests
+/// SMS permission, then forwards any incoming message from a recognized
+/// bank sender to Skandan's real ingestion service. Detected events are
+/// listed below the toggle — this does NOT automatically update the
+/// Financial State shown above (Skandan's and Sanjani's services aren't
+/// wired to each other; see README "Live Backend Integration").
+class _SmsIngestionCard extends ConsumerWidget {
+  const _SmsIngestionCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return const SizedBox.shrink();
+    }
+
+    final state = ref.watch(smsIngestionControllerProvider);
+    final controller = ref.read(smsIngestionControllerProvider.notifier);
+
+    return Card(
+      color: AppColors.surfaceRaised,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.sms_outlined, color: AppColors.accent, size: 18),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Auto-detect bank SMS',
+                    style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                Switch(
+                  value: state.enabled,
+                  onChanged: (value) {
+                    if (value) {
+                      controller.enable();
+                    } else {
+                      controller.disable();
+                    }
+                  },
+                ),
+              ],
+            ),
+            const Text(
+              'Sends incoming bank SMS text to the ingestion service while '
+              'the app is open. Detected events appear below — this is '
+              'separate from your Financial State above.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+            ),
+            if (state.permissionDenied) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'SMS permission was denied. Enable it in system settings to use this.',
+                style: TextStyle(color: AppColors.storm, fontSize: 12),
+              ),
+            ],
+            if (state.lastError != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                state.lastError!,
+                style: const TextStyle(color: AppColors.storm, fontSize: 12),
+              ),
+            ],
+            if (state.recentEvents.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              const Text(
+                'RECENTLY DETECTED',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final event in state.recentEvents)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        event.type == 'income' ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                        size: 14,
+                        color: event.type == 'income' ? AppColors.stable : AppColors.pressure,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${event.vendor} — ${event.currency} ${event.amount.toStringAsFixed(0)}',
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ],
         ),
       ),

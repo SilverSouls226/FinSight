@@ -47,6 +47,11 @@ dependencies:
   # Persists the onboarding profile on-device so it survives app restarts
   shared_preferences: ^2.3.3
 
+  # Real bank SMS interception (Android only) -> Skandan's ingestion API.
+  # `another_telephony` is a maintained fork of the (discontinued, AGP-9
+  # incompatible) `telephony` package — same API surface.
+  another_telephony: ^0.4.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

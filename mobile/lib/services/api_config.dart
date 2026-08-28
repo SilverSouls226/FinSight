@@ -26,5 +26,9 @@ class ApiConfig {
   /// Real route confirmed: POST {sameerBaseUrl}/api/evaluate/{user_id}
   static const String sameerBaseUrl = 'http://127.0.0.1:8000';
 
+  /// Skandan's Ingestion service.
+  /// Real route confirmed: POST {skandanBaseUrl}/ingest
+  static const String skandanBaseUrl = 'http://127.0.0.1:8001';
+
   static const Duration requestTimeout = Duration(seconds: 10);
 }

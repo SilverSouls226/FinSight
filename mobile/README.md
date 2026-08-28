@@ -212,6 +212,34 @@ If/when Sanjani's or Sameer's team wants to add either field to the
 locked contract for real, it's a pure addition — the mobile app already
 understands it.
 
+### Real bank SMS interception (Android only)
+
+The Home screen has an "Auto-detect bank SMS" toggle (Android only —
+hidden on other platforms). Turning it on:
+1. Requests SMS permission via `SmsListener` (`lib/services/sms_listener.dart`,
+   wrapping the `another_telephony` plugin — a maintained fork of the
+   discontinued `telephony` package, needed for AGP 9 compatibility; see
+   `android/build.gradle.kts` for the one Java-compatibility patch it
+   still needs).
+2. Listens for incoming SMS **while the app is in the foreground only**
+   (`listenInBackground: false` — no foreground service, no background
+   wiring; out of scope for this feature).
+3. Filters to likely bank senders (`lib/utils/bank_sms_filter.dart` — a
+   substring allowlist like `HDFCBK`, `SBIBNK`, `ICICIB`; this is a
+   client-side triage step only, not the real parsing).
+4. Forwards matches to Skandan's real ingestion endpoint,
+   `POST {skandanBaseUrl}/ingest`, via `ApiIngestionService`. A 422
+   response (unparseable / duplicate) is treated as a routine non-event,
+   not an error.
+5. Shows detected events (vendor, amount) in a small list on the card.
+
+**Scope note:** this only gets a message turned into a Normalized
+Financial Event by Skandan's service — it does **not** automatically
+update Sanjani's Financial State, since her service and his aren't wired
+to each other (see above). The Home screen's balance/risk won't move
+just from a detected SMS; forwarding into her `/events` would be a
+follow-up.
+
 ### What the mobile app depends on (and nothing else)
 
 - Only the JSON shapes in `docs/api_contracts.md`. No backend code, no
