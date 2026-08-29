@@ -48,11 +48,16 @@ void main() {
     ));
     await _settle(tester);
 
-    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.add_rounded));
+    expect(find.byKey(const Key('rootAddFab')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('rootAddFab')));
     await _settle(tester);
 
-    expect(find.text('Add'), findsOneWidget);
+    // Scoped to the sheet: the Home screen's "Add" quick-action label sits
+    // underneath and also matches plain find.text('Add').
+    expect(
+      find.descendant(of: find.byType(DraggableScrollableSheet), matching: find.text('Add')),
+      findsOneWidget,
+    );
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Expense'), findsOneWidget);
     expect(find.text('Obligation'), findsOneWidget);

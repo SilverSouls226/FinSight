@@ -40,7 +40,7 @@ void main() {
 
     final before = await fakeState.fetchSnapshot('usr_123');
 
-    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.tap(find.byKey(const Key('rootAddFab')));
     await _settle(tester);
 
     final scrollable = tester.widget<Scrollable>(

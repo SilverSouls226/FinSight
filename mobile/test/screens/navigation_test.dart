@@ -79,7 +79,7 @@ void main() {
 
     expect(find.byType(RootShell), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.text('Weather'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
   });
 
   testWidgets('bottom navigation switches between all core screens', (tester) async {
@@ -87,19 +87,19 @@ void main() {
     await tester.pumpAndSettle();
     await _completeOnboarding(tester);
 
-    await tester.tap(find.text('Twin'));
+    await tester.tap(find.text('Insights'));
     await _settleAsync(tester);
     expect(find.text('Financial Digital Twin'), findsOneWidget);
-
-    await tester.tap(find.text('Alerts'));
-    await _settleAsync(tester);
-    expect(find.text('Interventions'), findsOneWidget);
 
     await tester.tap(find.text('Simulate'));
     await _settleAsync(tester);
     expect(find.text('Can I afford this?'), findsOneWidget);
 
-    await tester.tap(find.text('Goals'));
+    await tester.tap(find.text('Alerts'));
+    await _settleAsync(tester);
+    expect(find.text('Interventions'), findsOneWidget);
+
+    await tester.tap(find.text('Profile'));
     await _settleAsync(tester);
     expect(find.text('Goals & Risk Profile'), findsOneWidget);
   });

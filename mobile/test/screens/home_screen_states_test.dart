@@ -108,7 +108,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('Stable'), findsOneWidget);
+    // Fake snapshot's shortfallProbability30d (0.08) falls under the
+    // "stable" weather threshold, so the risk card shows this copy --
+    // see RiskEstimator.weatherFromRisk and _RiskCard's title switch.
+    expect(find.text('Shortfall risk is low'), findsOneWidget);
     expect(find.byType(ErrorView), findsNothing);
   });
 }

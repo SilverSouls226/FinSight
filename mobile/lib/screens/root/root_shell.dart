@@ -37,8 +37,8 @@ class _MainNavigationState extends ConsumerState<_MainNavigation> with WidgetsBi
   static const _screens = [
     HomeScreen(),
     DigitalTwinScreen(),
-    InterventionFeedScreen(),
     SimulationScreen(),
+    InterventionFeedScreen(),
     GoalsScreen(),
   ];
 
@@ -75,21 +75,38 @@ class _MainNavigationState extends ConsumerState<_MainNavigation> with WidgetsBi
 
     return Scaffold(
       body: IndexedStack(index: index, children: _screens),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddEntrySheet(context),
-        tooltip: 'Add',
-        child: const Icon(Icons.add_rounded),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(19),
+          gradient: AppColors.accentGradient,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.45),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          key: const Key('rootAddFab'),
+          onPressed: () => showAddEntrySheet(context),
+          tooltip: 'Add',
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(19)),
+          child: const Icon(Icons.add_rounded),
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
         onDestinationSelected: (i) => ref.read(rootTabIndexProvider.notifier).state = i,
         backgroundColor: AppColors.surface,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.wb_cloudy_outlined), selectedIcon: Icon(Icons.wb_cloudy), label: 'Weather'),
-          NavigationDestination(icon: Icon(Icons.hub_outlined), selectedIcon: Icon(Icons.hub), label: 'Twin'),
-          NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Alerts'),
-          NavigationDestination(icon: Icon(Icons.calculate_outlined), selectedIcon: Icon(Icons.calculate), label: 'Simulate'),
-          NavigationDestination(icon: Icon(Icons.flag_outlined), selectedIcon: Icon(Icons.flag), label: 'Goals'),
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights_rounded), label: 'Insights'),
+          NavigationDestination(icon: Icon(Icons.calculate_outlined), selectedIcon: Icon(Icons.calculate_rounded), label: 'Simulate'),
+          NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications_rounded), label: 'Alerts'),
+          NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Profile'),
         ],
       ),
     );

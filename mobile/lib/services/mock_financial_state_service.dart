@@ -25,6 +25,7 @@ class MockFinancialStateService implements FinancialStateService {
   final List<UpcomingObligation> _manualObligations = [];
   final List<ActiveGoal> _manualGoals = [];
   double _safetyBuffer = 100.0;
+  bool _safetyBufferChanged = false;
 
   void setStage(String stageId) {
     _currentStageId = stageId;
@@ -42,7 +43,10 @@ class MockFinancialStateService implements FinancialStateService {
 
   void addManualGoal(ActiveGoal goal) => _manualGoals.add(goal);
 
-  void setSafetyBuffer(double buffer) => _safetyBuffer = buffer;
+  void setSafetyBuffer(double buffer) {
+    _safetyBuffer = buffer;
+    _safetyBufferChanged = true;
+  }
 
   @override
   Future<FinancialStateSnapshot> fetchSnapshot(String userId) async {
@@ -56,7 +60,8 @@ class MockFinancialStateService implements FinancialStateService {
     if (_manualBalanceDelta == 0 &&
         _openingBalanceOverride == null &&
         _manualObligations.isEmpty &&
-        _manualGoals.isEmpty) {
+        _manualGoals.isEmpty &&
+        !_safetyBufferChanged) {
       return base;
     }
 

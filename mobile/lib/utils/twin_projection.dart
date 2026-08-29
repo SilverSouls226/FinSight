@@ -33,10 +33,24 @@ class TwinProjection {
     return snapshot.projectedIncome30Days.estimatedAmount - snapshot.totalUpcomingObligations;
   }
 
-  /// Projected income variance as a percentage of the estimate (0 if no income).
+  /// Projected income variance as a percentage of the estimate, clamped to
+  /// a sane display range.
+  ///
+  /// Naively dividing by `estimatedAmount` blows up into absurd values
+  /// (seen live as "1,166,000.22%") whenever the backend sends a
+  /// near-zero/zero income estimate alongside a non-trivial variance --
+  /// the division is technically correct but meaningless to show. This
+  /// floors the denominator at a nominal ₹1 (so a tiny/zero estimate still
+  /// yields a large-but-finite ratio instead of exploding toward infinity)
+  /// and then caps the result at 100%, since past that point the number
+  /// stops conveying anything beyond "maximally uncertain".
   static double incomeVariancePercent(FinancialStateSnapshot snapshot) {
     final income = snapshot.projectedIncome30Days;
-    if (income.estimatedAmount <= 0) return 0;
-    return (income.variance / income.estimatedAmount) * 100;
+    final variance = income.variance.abs();
+    if (variance <= 0) return 0;
+
+    final denominator = income.estimatedAmount.abs() < 1 ? 1.0 : income.estimatedAmount.abs();
+    final pct = (variance / denominator) * 100;
+    return pct.clamp(0.0, 100.0);
   }
 }

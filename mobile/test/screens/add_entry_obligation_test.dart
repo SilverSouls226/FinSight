@@ -38,7 +38,7 @@ void main() {
     ));
     await _settle(tester);
 
-    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.tap(find.byKey(const Key('rootAddFab')));
     await _settle(tester);
     await tester.tap(find.text('Obligation'));
     await _settle(tester);

@@ -11,9 +11,9 @@ class FinSentinelApp extends StatelessWidget {
     return MaterialApp(
       title: 'FinSentinel',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.light,
+      themeMode: ThemeMode.light,
       home: const RootShell(),
     );
   }

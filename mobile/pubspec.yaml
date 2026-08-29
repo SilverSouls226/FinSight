@@ -52,6 +52,9 @@ dependencies:
   # incompatible) `telephony` package — same API surface.
   another_telephony: ^0.4.1
 
+  # Plus Jakarta Sans + Inter, to match the light redesign's typography.
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
